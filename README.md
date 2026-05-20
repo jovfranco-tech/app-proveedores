@@ -1,65 +1,183 @@
-# App Proveedores 3
+# App Proveedores
 
-App Proveedores 3 es la version unificada de las dos bases que tenias: toma la arquitectura mas completa de `App proveedores 2 5.5` y rescata de `App Proveedores` la identidad PWA/offline, iconografia, enfoque de catalogo visual y experiencia demo.
+Marketplace web para conectar clientes con proveedores locales verificados en Mexico. La app conserva el valor del producto original: solicitudes de servicio, panel de proveedor, panel admin, chat, escrow/pagos, disputas, auditoria, antifraude, PWA/offline y una experiencia demo local.
 
-Es un marketplace web en espanol de Mexico para conectar clientes con proveedores de servicios verificados. Incluye API real, JWT con refresh cookie, SSE con replay, paneles por rol, chat persistente, escrow con pasarelas configurables, admin, mapa Mapbox opcional, auditoria, antifraude, observabilidad, PWA y pruebas.
+La ruta de produccion ahora es Firebase-backed:
 
-## Que unifica
+```text
+Usuario
+  -> Vercel / React + Vite
+  -> Firebase Auth para sesion y registro
+  -> Cloud Firestore para datos operativos
+  -> Firebase Storage para evidencias y documentos
+  -> Cloud Functions para pagos, webhooks, roles admin, auditoria sensible
+  -> Stripe / Mercado Pago desde Functions, nunca desde el frontend
+```
 
-- Base tecnica de `App proveedores 2 5.5`: TypeScript, React/Vite, Express, SQLite local, Postgres productivo, Docker, Caddy, GitHub Actions, tests unitarios/e2e y production doctor.
-- Experiencia de `App Proveedores`: branding App Proveedores, modo demo rapido, manifiesto PWA, service worker, pantalla offline e icono instalable.
-- Catalogo visual: categorias con imagenes fijas para cerrajeria, plomeria, CCTV, carpinteria, albercas, jardineria, albanileria y climatizacion.
-- Flujo comercial completo: cliente publica, proveedor cotiza/acepta, chat, timeline, pagos retenidos, resenas, disputas y admin.
-- Camino a produccion: secretos por entorno, HTTPS, Postgres, webhooks, storage documental, observabilidad y smoke tests.
+Produccion actual: https://app-proveedores.vercel.app
 
-## Scripts
+## Servicios Firebase
 
-- `npm install`
-- `cp .env.example .env`
-- `npm run db:migrate` inicializa SQLite y datos semilla
-- `npm run db:backup` crea un respaldo de `data/conectapro.sqlite`
-- `npm run db:postgres:migrate` aplica el schema Postgres si defines `POSTGRES_URL`
-- `npm run db:postgres:backup` crea un backup con `pg_dump`
-- `npm run db:postgres:smoke` valida que el runtime arranque usando Postgres
-- `npm run prod:doctor` revisa configuracion obligatoria para produccion
-- `npm run prod:doctor:live` valida credenciales reales contra Stripe, Mercado Pago, Mapbox, S3 y Cloudinary
-- `npm run dev` inicia API en `http://localhost:5174` y web en `http://localhost:5173`
-- `npm run build` compila TypeScript y genera `dist/`
-- `npm test` ejecuta pruebas unitarias
-- `npm run test:e2e` ejecuta smoke y seguridad con Playwright en puertos aislados `6173/6174`
-- `npm run test:load` ejecuta una carga ligera contra endpoints criticos
+- Firebase Authentication: email/password, sesion persistida, perfiles por rol.
+- Cloud Firestore: `users`, `providers`, `categories`, `serviceRequests`, `quotes`, `messages`, `notifications`, `payments`, `disputes`, `reviews`, `auditLogs`, `fraudSignals`, `supportDocuments`, `runtimeConfig` y `appSettings`.
+- Firebase Storage: evidencias/documentos bajo `supportDocuments/{requestId}/{documentId}/{fileName}`.
+- Security Rules: reglas deny-by-default para Firestore y Storage.
+- Cloud Functions: endpoints preparados para custom claims, escrow, pagos/webhooks y auditoria.
+- Firebase Emulator Suite: Auth, Firestore, Storage, Functions y Emulator UI.
 
-## Usuarios de demo
+## Desarrollo Local
+
+```bash
+npm install
+cp .env.example .env
+npm run dev
+```
+
+Si no defines variables `VITE_FIREBASE_*`, la app entra en modo demo local en memoria. Las cuentas demo son:
 
 - Cliente: `cliente@conectapro.mx`
 - Proveedor: `proveedor@conectapro.mx`
 - Admin: `admin@conectapro.mx`
 - Password: `Demo123!`
 
-La autenticacion usa JWT de corta duracion, refresh token httpOnly y RBAC en servidor. Las acciones principales usan endpoints reales bajo `/api`. En local el default sigue siendo SQLite, pero el runtime ya cambia a Postgres cuando defines `DB_DRIVER=postgres`, `POSTGRES_URL` o un `DATABASE_URL` no-SQLite. Para varias instancias o muchos usuarios usa Postgres y valida el arranque con `npm run db:postgres:smoke`.
+## Emuladores Firebase
 
-## Integraciones reales
+1. Instala Firebase CLI si no lo tienes: `npm install -g firebase-tools`.
+2. Copia `.firebaserc.example` a `.firebaserc` y coloca tu project id.
+3. Arranca emuladores:
 
-- `PAYMENT_PROVIDER=local` confirma pagos localmente para desarrollo.
-- `PAYMENT_PROVIDER=stripe` usa Checkout Sessions con `STRIPE_SECRET_KEY` y valida webhooks con `STRIPE_WEBHOOK_SECRET`.
-- `PAYMENT_PROVIDER=mercadopago` crea preferencias Checkout Pro via REST con `MERCADOPAGO_ACCESS_TOKEN`.
-- `VITE_MAPBOX_TOKEN` activa Mapbox GL JS en la vista de mapa; sin token queda el mapa visual fallback.
-- Google OAuth se activa con `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y `OAUTH_REDIRECT_BASE_URL`.
-- Apple OAuth se activa con `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID` y `APPLE_PRIVATE_KEY` o `APPLE_PRIVATE_KEY_PATH`.
-- S3 genera URLs presignadas con `AWS_REGION` y `AWS_S3_BUCKET`.
-- Cloudinary genera uploads firmados con `CLOUDINARY_URL` o `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
-- Observabilidad: logs estructurados con Pino, `/metrics` Prometheus y export OTLP si defines `OTEL_EXPORTER_OTLP_ENDPOINT`.
+```bash
+npm run firebase:emulators
+```
 
-## Produccion y staging
+4. En `.env`, usa:
 
-- Copia `.env.example` a `.env` localmente, pero en servidores usa secretos del proveedor de hosting.
-- Usa `.env.staging.example` como plantilla para staging con Postgres, HTTPS, webhooks publicos y credenciales reales.
-- `NODE_ENV=production` exige secretos JWT reales y URLs HTTPS para `APP_ORIGIN` y `PUBLIC_WEBHOOK_BASE_URL`.
-- `Dockerfile`, `docker-compose.production.yml` y `Caddyfile` dejan un camino de despliegue con HTTPS y Postgres.
-- `.github/workflows/ci.yml` ejecuta lint, unitarias, build, e2e, audit y build de imagen.
-- `.github/workflows/deploy-staging.yml` despliega por SSH a un servidor staging con Docker Compose.
-- `.github/workflows/live-smoke.yml` ejecuta validaciones live contra staging cuando cargues los secretos en GitHub Actions.
+```bash
+VITE_FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099
+VITE_FIRESTORE_EMULATOR_HOST=127.0.0.1:8080
+VITE_FIREBASE_STORAGE_EMULATOR_HOST=127.0.0.1:9199
+```
 
-## Corte a produccion
+5. Si quieres sembrar datos en Firebase real o emulador:
 
-Antes de exponer trafico real, carga credenciales de Stripe/Mercado Pago/Mapbox/OAuth/S3/Cloudinary en el entorno del host, define `POSTGRES_URL`, `STAGING_URL` y `CUSTOM_DOMAIN`, y ejecuta `npm run prod:doctor:live`. Ese comando debe pasar en verde contra servicios reales; localmente es normal que falle o marque skips si aun no hay secretos.
+```bash
+FIREBASE_PROJECT_ID=tu-project-id npm run firebase:seed
+```
+
+Para emuladores, exporta también `FIRESTORE_EMULATOR_HOST`, `FIREBASE_AUTH_EMULATOR_HOST` y `FIREBASE_STORAGE_EMULATOR_HOST` en tu shell.
+
+## Variables De Entorno
+
+Frontend Vite/Vercel, solo config publica:
+
+- `VITE_FIREBASE_API_KEY`
+- `VITE_FIREBASE_AUTH_DOMAIN`
+- `VITE_FIREBASE_PROJECT_ID`
+- `VITE_FIREBASE_STORAGE_BUCKET`
+- `VITE_FIREBASE_MESSAGING_SENDER_ID`
+- `VITE_FIREBASE_APP_ID`
+- `VITE_FIREBASE_MEASUREMENT_ID` opcional
+- `VITE_FIREBASE_FUNCTIONS_BASE_URL`
+- `VITE_MAPBOX_TOKEN` opcional
+
+Backend/scripts/Functions, nunca en frontend:
+
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_SERVICE_ACCOUNT_JSON` solo para seed/scripts fuera de Google Cloud
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `MERCADOPAGO_ACCESS_TOKEN`
+- `MERCADOPAGO_WEBHOOK_SECRET`
+
+## Configuracion Firebase Manual
+
+1. Crea un proyecto en Firebase Console.
+2. Habilita Authentication con Email/Password.
+3. Crea Cloud Firestore en modo production.
+4. Habilita Firebase Storage.
+5. Registra una Web App y copia su config a Vercel como variables `VITE_FIREBASE_*`.
+6. Despliega reglas e indices:
+
+```bash
+firebase deploy --only firestore:rules,firestore:indexes,storage:rules
+```
+
+7. Instala y despliega Functions:
+
+```bash
+cd functions
+npm install
+npm run build
+firebase deploy --only functions
+```
+
+8. Configura secrets de Functions para pagos:
+
+```bash
+firebase functions:secrets:set STRIPE_WEBHOOK_SECRET
+firebase functions:secrets:set MERCADOPAGO_WEBHOOK_SECRET
+```
+
+9. Ejecuta `npm run firebase:seed` para demo users/categorias/solicitudes si necesitas datos iniciales.
+10. En Vercel, redeploy de frontend despues de configurar env vars.
+
+## Seguridad
+
+- Admin no es self-assignable desde el frontend.
+- Usuarios solo editan campos permitidos de su perfil.
+- Clientes crean y leen sus propias solicitudes.
+- Proveedores leen solicitudes abiertas y las asignadas/cotizadas segun la logica del marketplace.
+- Mensajes y documentos se autorizan por acceso a la solicitud.
+- `payments` solo permite escritura admin/Functions.
+- `auditLogs` no permite escritura de clientes/proveedores.
+- Firestore y Storage tienen fallback deny-by-default.
+- Secretos de pago y credenciales Admin SDK quedan fuera de Vite.
+
+## Pagos Y Escrow
+
+El frontend conserva el concepto de escrow, pero en modo Firebase no marca pagos como pagados/liberados/reembolsados directamente. Esos cambios pasan por Cloud Functions:
+
+- `escrowPayment`
+- `stripeWebhook`
+- `mercadoPagoWebhook`
+- `setUserRole`
+
+Los webhooks incluidos son una base de produccion: reciben eventos, escriben auditoria y dejan el punto claro para validar firmas y actualizar `payments`/`serviceRequests` con logica especifica de Stripe o Mercado Pago.
+
+## Migracion Desde SQLite/Postgres
+
+El modelo relacional anterior se mapea asi:
+
+- `users` -> `users/{uid}`
+- `providers` -> `providers/{providerId}`
+- `service_requests` -> `serviceRequests/{requestId}`
+- `chat_messages` -> `messages/{messageId}` con `requestId`
+- `payments` -> `payments/{paymentId}`
+- `audit_log` -> `auditLogs/{auditId}`
+- `support_documents` -> `supportDocuments/{documentId}` y archivo en Storage
+- `notifications`, `reviews`, `disputes`, `fraudSignals` quedan como colecciones top-level
+
+Para migrar datos reales, exporta filas SQL a JSON, conserva ids estables cuando existan, reemplaza ids de usuarios por Firebase Auth UIDs y usa Admin SDK o `npm run firebase:seed` como plantilla.
+
+## Validacion
+
+```bash
+npm run lint
+npm test
+npm run build
+```
+
+Smoke test posterior a deploy:
+
+- Crear cuenta cliente y publicar solicitud.
+- Crear cuenta proveedor y cotizar/aceptar solicitud abierta.
+- Confirmar que Storage permite subir evidencia del caso.
+- Confirmar que cliente/proveedor no pueden leer panel admin.
+- Confirmar que cliente no puede escribir `payments` ni `auditLogs`.
+- Confirmar webhook de pago actualiza escrow desde Functions.
+
+## Limitaciones Conocidas
+
+- Los webhooks de Stripe/Mercado Pago estan preparados como boundary seguro, pero la validacion criptografica y conciliacion final deben completarse con las credenciales reales del proveedor elegido.
+- Las pruebas de reglas incluidas son estaticas; para una suite completa usa `@firebase/rules-unit-testing` con emuladores en CI.
+- El backend Express/SQLite sigue en el repo como referencia y compatibilidad local, pero el frontend ya usa Firebase cuando `VITE_FIREBASE_*` esta configurado.

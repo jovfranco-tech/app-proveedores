@@ -1,0 +1,64 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profile() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
+    }
+
+    function hasProfile() {
+      return signedIn() && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid));
+    }
+
+    function role() {
+      return hasProfile() ? profile().data.role : null;
+    }
+
+    function providerId() {
+      return hasProfile() ? profile().data.providerId : null;
+    }
+
+    function isAdmin() {
+      return signedIn() && (request.auth.token.admin == true || request.auth.token.role == 'admin' || role() == 'admin');
+    }
+
+    function requestDoc(requestId) {
+      return firestore.get(/databases/(default)/documents/serviceRequests/$(requestId));
+    }
+
+    function requestExists(requestId) {
+      return firestore.exists(/databases/(default)/documents/serviceRequests/$(requestId));
+    }
+
+    function canAccessRequest(requestId) {
+      return requestExists(requestId)
+        && (isAdmin()
+          || (role() == 'cliente' && requestDoc(requestId).data.clientId == request.auth.uid)
+          || (role() == 'proveedor' && (requestDoc(requestId).data.status in ['abierta', 'cotizada'] || requestDoc(requestId).data.providerId == providerId())));
+    }
+
+    match /supportDocuments/{requestId}/{documentId}/{fileName} {
+      allow read: if signedIn() && canAccessRequest(requestId);
+
+      allow create: if signedIn()
+        && canAccessRequest(requestId)
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType in [
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'application/pdf'
+        ];
+
+      allow update, delete: if isAdmin();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

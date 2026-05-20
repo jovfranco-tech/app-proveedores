@@ -1,0 +1,204 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Role model:
+    // - cliente/proveedor profiles are created by the signed-in user after Firebase Auth signup.
+    // - admin is assigned only by custom claims or privileged Cloud Functions/Admin SDK.
+    // - Cloud Functions use Admin SDK and bypass these client rules for webhook/audit/payment writes.
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function hasProfile() {
+      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function role() {
+      return hasProfile() ? profile().data.role : null;
+    }
+
+    function providerId() {
+      return hasProfile() ? profile().data.providerId : null;
+    }
+
+    function isAdmin() {
+      return signedIn() && (request.auth.token.admin == true || request.auth.token.role == 'admin' || role() == 'admin');
+    }
+
+    function isClient() {
+      return role() == 'cliente';
+    }
+
+    function isProvider() {
+      return role() == 'proveedor';
+    }
+
+    function requestDoc(requestId) {
+      return get(/databases/$(database)/documents/serviceRequests/$(requestId));
+    }
+
+    function requestExists(requestId) {
+      return exists(/databases/$(database)/documents/serviceRequests/$(requestId));
+    }
+
+    function canReadRequest(data) {
+      return isAdmin()
+        || (isClient() && data.clientId == request.auth.uid)
+        || (isProvider() && (data.status in ['abierta', 'cotizada'] || data.providerId == providerId()));
+    }
+
+    function canParticipateInRequest(requestId) {
+      return requestExists(requestId) && canReadRequest(requestDoc(requestId).data);
+    }
+
+    function immutablePaymentFields() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['escrow', 'payment', 'paymentId']);
+    }
+
+    match /users/{userId} {
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.role in ['cliente', 'proveedor']
+        && request.resource.data.keys().hasOnly(['id', 'name', 'email', 'role', 'providerId', 'createdAt', 'updatedAt', 'onboardingComplete']);
+
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == userId);
+
+      allow update: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'updatedAt', 'onboardingComplete'])
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.providerId == resource.data.providerId;
+
+      allow delete: if isAdmin();
+    }
+
+    match /providers/{providerDocId} {
+      allow read: if signedIn();
+
+      allow create: if isProvider()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.verified == false
+        && providerDocId == providerId();
+
+      allow update: if isAdmin()
+        || (isProvider()
+          && providerDocId == providerId()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'trade', 'categoryIds', 'location', 'subscription', 'updatedAt'])
+          && request.resource.data.verified == resource.data.verified
+          && request.resource.data.ownerUid == resource.data.ownerUid);
+
+      allow delete: if isAdmin();
+    }
+
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /serviceRequests/{requestId} {
+      allow create: if isClient()
+        && request.resource.data.clientId == request.auth.uid
+        && request.resource.data.status == 'abierta'
+        && request.resource.data.escrow.status == 'sin_pago'
+        && request.resource.data.escrow.amount == 0;
+
+      allow read: if signedIn() && canReadRequest(resource.data);
+
+      allow update: if isAdmin()
+        || (isClient()
+          && resource.data.clientId == request.auth.uid
+          && immutablePaymentFields()
+          && request.resource.data.clientId == resource.data.clientId
+          && request.resource.data.providerId == resource.data.providerId)
+        || (isProvider()
+          && (resource.data.status in ['abierta', 'cotizada'] || resource.data.providerId == providerId())
+          && request.resource.data.providerId == providerId()
+          && immutablePaymentFields()
+          && request.resource.data.clientId == resource.data.clientId);
+
+      allow delete: if isAdmin();
+    }
+
+    match /quotes/{quoteId} {
+      allow create: if isProvider()
+        && request.resource.data.providerId == providerId()
+        && canParticipateInRequest(request.resource.data.requestId);
+
+      allow read: if signedIn() && canParticipateInRequest(resource.data.requestId);
+      allow update, delete: if isAdmin();
+    }
+
+    match /messages/{messageId} {
+      allow create: if signedIn()
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.senderRole == role()
+        && canParticipateInRequest(request.resource.data.requestId);
+
+      allow read: if signedIn() && canParticipateInRequest(resource.data.requestId);
+      allow update, delete: if false;
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if signedIn() && (isAdmin() || resource.data.role == role() || resource.data.role == 'todos');
+      allow write: if isAdmin();
+    }
+
+    match /reviews/{reviewId} {
+      allow create: if isClient() && canParticipateInRequest(request.resource.data.requestId);
+      allow read: if signedIn() && canParticipateInRequest(resource.data.requestId);
+      allow update, delete: if isAdmin();
+    }
+
+    match /disputes/{disputeId} {
+      allow create: if isClient() && canParticipateInRequest(request.resource.data.requestId);
+      allow read: if signedIn() && (isAdmin() || canParticipateInRequest(resource.data.requestId));
+      allow update, delete: if isAdmin();
+    }
+
+    match /supportDocuments/{documentId} {
+      allow create: if signedIn()
+        && request.resource.data.uploadedBy == request.auth.uid
+        && canParticipateInRequest(request.resource.data.requestId)
+        && request.resource.data.reviewStatus == 'pendiente';
+
+      allow read: if signedIn() && (isAdmin() || canParticipateInRequest(resource.data.requestId));
+      allow update, delete: if isAdmin();
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.userId == request.auth.uid)
+        || (isProvider() && resource.data.providerId == providerId());
+      allow write: if isAdmin();
+    }
+
+    match /auditLogs/{auditId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /fraudSignals/{signalId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /runtimeConfig/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /appSettings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

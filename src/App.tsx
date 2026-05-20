@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   LockKeyhole,
   LogIn,
+  LogOut,
   Map,
   MapPin,
   MessageCircle,
@@ -21,13 +22,14 @@ import {
   SlidersHorizontal,
   Sparkles,
   Star,
+  UserPlus,
   UsersRound,
   Wrench
 } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ElementType, ReactNode } from 'react';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { api, CreateRequestPayload, RequestFilters } from './api';
+import { api, CreateRequestPayload, RequestFilters, SignupPayload, usingFirebaseBackend } from './api';
 import { ServiceRequestForm } from './components/ServiceRequestForm';
 import type {
   AuditLog,
@@ -170,12 +172,14 @@ function AppHeader({
   session,
   activeView,
   notifications,
-  onNavigate
+  onNavigate,
+  onLogout
 }: {
   session: UserSession | null;
   activeView: View;
   notifications: AppNotification[];
   onNavigate: (view: View) => void;
+  onLogout: () => void;
 }) {
   const navItems: Array<{ view: View; label: string; icon: ElementType; roles?: Role[] }> = [
     { view: 'home', label: 'Inicio', icon: LayoutDashboard },
@@ -218,7 +222,12 @@ function AppHeader({
       <div className="header-status" aria-live="polite">
         <Bell aria-hidden="true" size={18} />
         <span>{notifications.length}</span>
-        <strong>{session ? roleLabels[session.role] : 'Sesion demo'}</strong>
+        <strong>{session ? roleLabels[session.role] : usingFirebaseBackend() ? 'Sin sesion' : 'Demo local'}</strong>
+        {session ? (
+          <button className="icon-header-button" type="button" onClick={onLogout} aria-label="Cerrar sesion">
+            <LogOut aria-hidden="true" size={17} />
+          </button>
+        ) : null}
       </div>
     </header>
   );
@@ -231,7 +240,8 @@ function HomeView({
   metrics,
   runtimeConfig,
   onNavigate,
-  onLogin
+  onLogin,
+  onSignup
 }: {
   featured: Category[];
   categories: Category[];
@@ -240,6 +250,7 @@ function HomeView({
   runtimeConfig: RuntimeConfig | null;
   onNavigate: (view: View) => void;
   onLogin: (role: Role, email: string, password: string) => Promise<void>;
+  onSignup: (payload: SignupPayload) => Promise<void>;
 }) {
   return (
     <>
@@ -286,7 +297,7 @@ function HomeView({
           <p className="section-kicker">Acceso por rol</p>
           <h2 id="login-title">Opera como cliente, proveedor o admin</h2>
         </div>
-        <AuthPanel session={session} runtimeConfig={runtimeConfig} onLogin={onLogin} />
+        <AuthPanel session={session} runtimeConfig={runtimeConfig} onLogin={onLogin} onSignup={onSignup} />
       </section>
 
       <section className="content-section" aria-labelledby="featured-title">
@@ -334,13 +345,17 @@ function HomeView({
 function AuthPanel({
   session,
   runtimeConfig,
-  onLogin
+  onLogin,
+  onSignup
 }: {
   session: UserSession | null;
   runtimeConfig: RuntimeConfig | null;
   onLogin: (role: Role, email: string, password: string) => Promise<void>;
+  onSignup: (payload: SignupPayload) => Promise<void>;
 }) {
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [role, setRole] = useState<Role>(session?.role ?? 'cliente');
+  const [name, setName] = useState(session?.name ?? '');
   const [email, setEmail] = useState(demoEmails[session?.role ?? 'cliente']);
   const [password, setPassword] = useState('Demo123!');
   const [busy, setBusy] = useState(false);
@@ -349,6 +364,7 @@ function AuthPanel({
     if (session) {
       setRole(session.role);
       setEmail(session.email);
+      setName(session.name);
     }
   }, [session]);
 
@@ -356,7 +372,12 @@ function AuthPanel({
     event.preventDefault();
     setBusy(true);
     try {
-      await onLogin(role, email, password);
+      if (mode === 'signup') {
+        if (role === 'admin') throw new Error('El rol admin se asigna desde una operacion privilegiada.');
+        await onSignup({ name, email, password, role });
+      } else {
+        await onLogin(role, email, password);
+      }
     } finally {
       setBusy(false);
     }
@@ -364,21 +385,35 @@ function AuthPanel({
 
   return (
     <form className="auth-panel" onSubmit={submit} aria-label="Inicio de sesion por rol">
+      <div className="segmented" role="group" aria-label="Modo de acceso">
+        <button className={mode === 'login' ? 'active' : ''} type="button" onClick={() => setMode('login')}>
+          Entrar
+        </button>
+        <button className={mode === 'signup' ? 'active' : ''} type="button" onClick={() => setMode('signup')}>
+          Crear cuenta
+        </button>
+      </div>
       <div className="segmented" role="group" aria-label="Selecciona rol">
-        {(['cliente', 'proveedor', 'admin'] as Role[]).map((item) => (
+        {(['cliente', 'proveedor', ...(mode === 'login' ? ['admin' as Role] : [])] as Role[]).map((item) => (
           <button
             key={item}
             className={role === item ? 'active' : ''}
             type="button"
             onClick={() => {
               setRole(item);
-              setEmail(demoEmails[item]);
+              if (!usingFirebaseBackend()) setEmail(demoEmails[item]);
             }}
           >
             {roleLabels[item]}
           </button>
         ))}
       </div>
+      {mode === 'signup' ? (
+        <label>
+          Nombre
+          <input required minLength={2} value={name} onChange={(event) => setName(event.target.value)} />
+        </label>
+      ) : null}
       <label>
         Correo
         <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
@@ -388,9 +423,14 @@ function AuthPanel({
         <input required minLength={8} type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
       </label>
       <button className="primary-button" type="submit" disabled={busy}>
-        <LogIn aria-hidden="true" size={18} />
-        Entrar
+        {mode === 'signup' ? <UserPlus aria-hidden="true" size={18} /> : <LogIn aria-hidden="true" size={18} />}
+        {mode === 'signup' ? 'Crear cuenta' : 'Entrar'}
       </button>
+      <p className="auth-mode-note">
+        {usingFirebaseBackend()
+          ? 'Firebase Auth activo. El rol admin requiere asignacion segura.'
+          : 'Modo demo local: cliente/proveedor/admin usan Demo123!.'}
+      </p>
       {runtimeConfig?.services?.googleOAuth || runtimeConfig?.services?.appleOAuth ? (
         <div className="oauth-actions" aria-label="Inicio de sesion OAuth">
           {runtimeConfig.services.googleOAuth ? (
@@ -1429,14 +1469,13 @@ export function App() {
     async function bootstrap() {
       setLoading(true);
       try {
-        const initialSession = await api.login('cliente', demoEmails.cliente, 'Demo123!');
-        const [configData, categoryData, featuredData, heatData, notificationsData, requestData] = await Promise.all([
+        const initialSession = await api.currentSession();
+        const [configData, categoryData, featuredData, heatData, notificationsData] = await Promise.all([
           api.config(),
           api.categories(),
           api.featuredCategories(),
           api.heatmap(),
-          api.notifications(initialSession.role),
-          api.requests({ role: 'cliente', clientId: initialSession.id })
+          initialSession ? api.notifications(initialSession.role) : Promise.resolve([])
         ]);
 
         if (!alive) return;
@@ -1446,9 +1485,11 @@ export function App() {
         setFeatured(featuredData);
         setHeatPoints(heatData);
         setNotifications(notificationsData);
-        setRequests(requestData);
+        if (initialSession) {
+          setView(routeForRole(initialSession.role));
+        }
       } catch (err) {
-        if (alive) setError(err instanceof Error ? err.message : 'No pudimos iniciar la sesion demo.');
+        if (alive) setError(err instanceof Error ? err.message : 'No pudimos cargar la app.');
       } finally {
         if (alive) setLoading(false);
       }
@@ -1461,16 +1502,22 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (!session) return undefined;
-    const source = new EventSource('/events', { withCredentials: true });
-    source.addEventListener('notification', (event) => {
-      const payload = JSON.parse((event as MessageEvent).data) as AppNotification;
-      setNotifications((current) => [payload, ...current].slice(0, 12));
-      showToast('info', payload.message);
+    if (!session) return;
+    void loadRoleData(session);
+  }, [loadRoleData, session]);
+
+  useEffect(() => {
+    if (!usingFirebaseBackend()) return undefined;
+    return api.onSessionChanged((nextSession) => {
+      setSession(nextSession);
+      if (!nextSession) {
+        setRequests([]);
+        setProvider(null);
+        setProviders([]);
+        setView('home');
+      }
     });
-    source.onerror = () => showToast('info', 'Reconectando notificaciones en tiempo real...');
-    return () => source.close();
-  }, [session, showToast]);
+  }, []);
 
   useEffect(() => {
     if (selectedRequestId) {
@@ -1489,6 +1536,43 @@ export function App() {
       showToast('success', `Sesion activa como ${roleLabels[nextSession.role]}.`);
     } catch (err) {
       showToast('error', err instanceof Error ? err.message : 'No pudimos iniciar sesion.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSignup(payload: SignupPayload) {
+    setBusy(true);
+    try {
+      const nextSession = await api.signup(payload);
+      setSession(nextSession);
+      setView(routeForRole(nextSession.role));
+      await loadCore(nextSession.role);
+      await loadRoleData(nextSession);
+      showToast('success', `Cuenta creada como ${roleLabels[nextSession.role]}.`);
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'No pudimos crear la cuenta.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleLogout() {
+    setBusy(true);
+    try {
+      await api.logout();
+      setSession(null);
+      setRequests([]);
+      setSelectedRequest(null);
+      setSelectedRequestId(null);
+      setMessages([]);
+      setDocuments([]);
+      setNotifications([]);
+      setView('home');
+      await loadCore();
+      showToast('success', 'Sesion cerrada.');
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'No pudimos cerrar sesion.');
     } finally {
       setBusy(false);
     }
@@ -1672,7 +1756,7 @@ export function App() {
 
   return (
     <div className="app">
-      <AppHeader session={session} activeView={view} notifications={notifications} onNavigate={handleNavigate} />
+      <AppHeader session={session} activeView={view} notifications={notifications} onNavigate={handleNavigate} onLogout={handleLogout} />
       <main>
         {error ? <ErrorBanner message={error} onRetry={() => loadCore(session?.role)} /> : null}
         {loading ? <LoadingBlock label="Preparando App Proveedores..." /> : null}
@@ -1685,6 +1769,7 @@ export function App() {
             runtimeConfig={runtimeConfig}
             onNavigate={handleNavigate}
             onLogin={handleLogin}
+            onSignup={handleSignup}
           />
         ) : null}
         {!loading && view === 'catalogo' ? <CatalogView categories={categories} session={session} onNavigate={handleNavigate} /> : null}
@@ -1730,37 +1815,7 @@ export function App() {
             onUploadDocument={(file) =>
               selectedRequestId
                 ? runAction(async () => {
-                    const target = await api.uploadDocumentTarget(selectedRequestId, {
-                      fileName: file.name,
-                      contentType: file.type || 'application/octet-stream'
-                    });
-                    if (target.provider === 's3') {
-                      if (!target.uploadUrl || !target.publicUrl) throw new Error('S3 no regreso URL de carga.');
-                      const uploaded = await fetch(target.uploadUrl, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': file.type || 'application/octet-stream' },
-                        body: file
-                      });
-                      if (!uploaded.ok) throw new Error('S3 rechazo la subida del archivo.');
-                      await api.createDocument(selectedRequestId, {
-                        docType: 'evidencia',
-                        fileName: file.name,
-                        fileUrl: target.publicUrl
-                      });
-                    } else {
-                      if (!target.uploadUrl || !target.fields) throw new Error('Cloudinary no regreso parametros de carga.');
-                      const form = new FormData();
-                      Object.entries(target.fields).forEach(([key, value]) => form.append(key, String(value)));
-                      form.append('file', file);
-                      const uploaded = await fetch(target.uploadUrl, { method: 'POST', body: form });
-                      if (!uploaded.ok) throw new Error('Cloudinary rechazo la subida del archivo.');
-                      const payload = (await uploaded.json()) as { secure_url?: string; url?: string };
-                      await api.createDocument(selectedRequestId, {
-                        docType: 'evidencia',
-                        fileName: file.name,
-                        fileUrl: payload.secure_url ?? payload.url ?? target.publicUrl ?? ''
-                      });
-                    }
+                    await api.uploadDocumentFile(selectedRequestId, file);
                   }, 'Archivo subido y adjuntado al caso.')
                 : undefined
             }

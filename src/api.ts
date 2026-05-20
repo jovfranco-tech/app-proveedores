@@ -1,13 +1,21 @@
+import { nanoid } from 'nanoid';
+import {
+  categories as seedCategories,
+  chatMessages as seedMessages,
+  heatPoints as seedHeatPoints,
+  metrics as seedMetrics,
+  notifications as seedNotifications,
+  providers as seedProviders,
+  requests as seedRequests,
+  sessions as seedSessions
+} from '../server/seed';
+import { isFirebaseConfigured } from './firebase/client';
+import { CreateRequestPayload, RequestFilters, SignupPayload, firebaseRepository } from './firebase/repository';
 import type {
-  ApiEnvelope,
   AuditLog,
-  AuthPayload,
-  Category,
   ChatMessage,
+  EscrowStatus,
   FraudSignal,
-  HeatPoint,
-  Metrics,
-  NotificationEvent,
   PaymentCheckout,
   PaymentRecord,
   Provider,
@@ -16,252 +24,417 @@ import type {
   RuntimeConfig,
   ServiceRequest,
   SupportDocument,
-  UploadTarget
+  UserSession
 } from './types';
 
-type QueryValue = string | number | boolean | undefined | null;
+export type { CreateRequestPayload, RequestFilters, SignupPayload };
 
-let accessToken = '';
+const nowIso = () => new Date().toISOString();
 
-export function setAccessToken(token: string) {
-  accessToken = token;
+let demoSession: UserSession | null = null;
+const demoRequests = seedRequests.map((request) => ({ ...request, timeline: [...request.timeline] }));
+const demoMessages = seedMessages.map((message) => ({ ...message }));
+const demoProviders = seedProviders.map((provider) => ({ ...provider }));
+const demoDocuments: SupportDocument[] = [];
+const demoPayments: PaymentRecord[] = [];
+const demoAuditLogs: AuditLog[] = [];
+
+function clone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
 }
 
-async function parseJson<T>(response: Response) {
-  return (await response.json().catch(() => null)) as ApiEnvelope<T> | { message?: string } | null;
+function assertDemoSession() {
+  if (!demoSession) throw new Error('Inicia sesion para continuar.');
+  return demoSession;
 }
 
-async function apiFetch<T>(path: string, options: RequestInit = {}, retried = false): Promise<T> {
-  const headers = new Headers(options.headers);
-  if (!(options.body instanceof FormData) && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
-  }
-  if (accessToken) {
-    headers.set('Authorization', `Bearer ${accessToken}`);
-  }
+function ensureRequest(id: string) {
+  const request = demoRequests.find((item) => item.id === id);
+  if (!request) throw new Error('No encontramos la solicitud.');
+  return request;
+}
 
-  const response = await fetch(path, {
-    ...options,
-    credentials: 'include',
-    headers
+function ensureProvider(id: string) {
+  const provider = demoProviders.find((item) => item.id === id);
+  if (!provider) throw new Error('No encontramos el proveedor.');
+  return provider;
+}
+
+function pushAudit(action: string, entityType: string, entityId?: string, metadata: Record<string, unknown> = {}) {
+  const session = demoSession;
+  demoAuditLogs.unshift({
+    id: nanoid(),
+    actorUserId: session?.id,
+    actorRole: session?.role,
+    action,
+    entityType,
+    entityId,
+    metadata,
+    createdAt: nowIso()
   });
-  const payload = await parseJson<T>(response);
+}
 
-  if (response.status === 401 && !retried && path !== '/api/auth/refresh' && path !== '/api/auth/login') {
-    try {
-      const refreshed = await api.refresh();
-      accessToken = refreshed.accessToken;
-      return apiFetch<T>(path, options, true);
-    } catch {
-      accessToken = '';
-    }
+function visibleDemoRequests(filters: RequestFilters) {
+  let visible = demoRequests;
+  if (filters.role === 'cliente') visible = visible.filter((request) => request.clientId === filters.clientId);
+  if (filters.role === 'proveedor') {
+    visible = visible.filter((request) => request.status === 'abierta' || request.providerId === filters.providerId);
   }
-
-  if (!response.ok) {
-    const message = payload && 'message' in payload && payload.message ? payload.message : 'No pudimos completar la accion. Intenta de nuevo.';
-    throw new Error(message);
+  if (filters.category && filters.category !== 'todas') visible = visible.filter((request) => request.categoryId === filters.category);
+  if (filters.search) {
+    const search = filters.search.toLowerCase();
+    visible = visible.filter((request) => `${request.title} ${request.description}`.toLowerCase().includes(search));
   }
-
-  if (!payload || !('data' in payload)) {
-    throw new Error('La respuesta del servidor no tiene el formato esperado.');
-  }
-
-  return payload.data;
+  if (filters.maxBudget) visible = visible.filter((request) => request.budget <= Number(filters.maxBudget));
+  if (filters.maxDistance) visible = visible.filter((request) => request.distanceKm <= Number(filters.maxDistance));
+  return clone(visible.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)));
 }
 
-function qs<T extends object>(params: T) {
-  const search = new URLSearchParams();
-  Object.entries(params as Record<string, QueryValue>).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      search.set(key, String(value));
-    }
-  });
-  const value = search.toString();
-  return value ? `?${value}` : '';
-}
+const demoApi = {
+  isConfigured: () => false,
 
-export interface RequestFilters {
-  role: Role;
-  clientId?: string;
-  providerId?: string;
-  category?: string;
-  search?: string;
-  maxBudget?: number;
-  maxDistance?: number;
-}
+  onSessionChanged(callback: (session: UserSession | null) => void) {
+    window.setTimeout(() => callback(demoSession), 0);
+    return () => undefined;
+  },
 
-export interface CreateRequestPayload {
-  clientId: string;
-  title: string;
-  categoryId: string;
-  address: string;
-  city: string;
-  dateTime: string;
-  budget: number;
-  description: string;
-  location?: {
-    lat: number;
-    lng: number;
-  };
-}
+  async currentSession() {
+    return demoSession ? clone(demoSession) : null;
+  },
 
-export const api = {
   async login(role: Role, email: string, password = 'Demo123!') {
-    const payload = await apiFetch<AuthPayload>('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ role, email, password })
+    const session = seedSessions[role];
+    if (email !== session.email || password !== 'Demo123!') {
+      throw new Error('En modo demo usa las cuentas sembradas y password Demo123!.');
+    }
+    demoSession = clone(session);
+    return clone(session);
+  },
+
+  async signup(payload: SignupPayload) {
+    const providerId = payload.role === 'proveedor' ? `prov_${nanoid(8)}` : undefined;
+    const session: UserSession = {
+      id: `usr_${nanoid(10)}`,
+      name: payload.name,
+      email: payload.email,
+      role: payload.role,
+      providerId
+    };
+    if (providerId) {
+      demoProviders.unshift({
+        id: providerId,
+        name: payload.name,
+        trade: 'Proveedor de servicios locales',
+        categoryIds: [],
+        verified: false,
+        rating: 0,
+        jobsCompleted: 0,
+        subscription: {
+          plan: 'Basico',
+          status: 'pendiente',
+          renewalDate: '',
+          price: 299
+        },
+        location: {
+          lat: 19.4328,
+          lng: -99.1333,
+          address: 'Ciudad de Mexico'
+        }
+      });
+    }
+    demoSession = session;
+    pushAudit('demo.signup', 'user', session.id, { role: session.role });
+    return clone(session);
+  },
+
+  async logout() {
+    demoSession = null;
+    return { ok: true };
+  },
+
+  async config(): Promise<RuntimeConfig> {
+    return {
+      mapboxToken: import.meta.env.VITE_MAPBOX_TOKEN as string | undefined,
+      paymentProvider: 'local',
+      sseReplay: false,
+      services: {
+        demoMode: true,
+        firebase: false
+      }
+    };
+  },
+
+  async categories() {
+    return clone(seedCategories);
+  },
+
+  async featuredCategories() {
+    return clone(seedCategories.filter((category) => category.featured));
+  },
+
+  async notifications(role: Role) {
+    return clone(seedNotifications.filter((notification) => notification.role === role || notification.role === 'todos'));
+  },
+
+  async requests(filters: RequestFilters) {
+    assertDemoSession();
+    return visibleDemoRequests(filters);
+  },
+
+  async createRequest(payload: CreateRequestPayload) {
+    assertDemoSession();
+    const createdAt = nowIso();
+    const request: ServiceRequest = {
+      id: `req_${nanoid(10)}`,
+      ...payload,
+      distanceKm: 0,
+      status: 'abierta',
+      createdAt,
+      timeline: [
+        {
+          id: nanoid(),
+          status: 'abierta',
+          label: 'Solicitud publicada para proveedores verificados.',
+          actor: 'cliente',
+          createdAt
+        }
+      ],
+      escrow: { amount: 0, status: 'sin_pago' }
+    };
+    demoRequests.unshift(request);
+    pushAudit('request.created', 'serviceRequest', request.id);
+    return clone(request);
+  },
+
+  async request(id: string) {
+    assertDemoSession();
+    return clone(ensureRequest(id));
+  },
+
+  async updateStatus(id: string, role: Role, status: RequestStatus, label: string) {
+    assertDemoSession();
+    const request = ensureRequest(id);
+    request.status = status;
+    request.timeline.push({ id: nanoid(), status, label, actor: role, createdAt: nowIso() });
+    pushAudit('request.status.updated', 'serviceRequest', id, { status });
+    return clone(request);
+  },
+
+  async quoteRequest(id: string, providerId: string, amount: number, message: string) {
+    assertDemoSession();
+    const request = ensureRequest(id);
+    request.providerId = providerId;
+    request.status = 'cotizada';
+    request.quote = { providerId, amount, message };
+    request.timeline.push({ id: nanoid(), status: 'cotizada', label: 'Proveedor envio una cotizacion.', actor: 'proveedor', createdAt: nowIso() });
+    pushAudit('quote.created', 'serviceRequest', id, { providerId, amount });
+    return clone(request);
+  },
+
+  async acceptRequest(id: string, providerId: string, amount: number, message: string) {
+    assertDemoSession();
+    const request = ensureRequest(id);
+    request.providerId = providerId;
+    request.status = 'aceptada';
+    request.quote = { providerId, amount, message };
+    request.escrow = { amount, status: 'sin_pago' };
+    request.timeline.push({ id: nanoid(), status: 'aceptada', label: 'Proveedor acepto el trabajo y preparo el escrow.', actor: 'proveedor', createdAt: nowIso() });
+    pushAudit('request.accepted', 'serviceRequest', id, { providerId, amount });
+    return clone(request);
+  },
+
+  async messages(id: string) {
+    assertDemoSession();
+    return clone(demoMessages.filter((message) => message.requestId === id));
+  },
+
+  async sendMessage(id: string, senderRole: Role, senderName: string, message: string) {
+    assertDemoSession();
+    const created: ChatMessage = { id: nanoid(), requestId: id, senderRole, senderName, message, createdAt: nowIso() };
+    demoMessages.push(created);
+    return clone(created);
+  },
+
+  async escrow(id: string, role: Role, action: 'pay' | 'release' | 'refund', amount?: number) {
+    assertDemoSession();
+    const request = ensureRequest(id);
+    const nextStatus: EscrowStatus = action === 'pay' ? 'retenido' : action === 'release' ? 'liberado' : 'reembolsado';
+    const payment: PaymentRecord = {
+      id: `pay_${nanoid(10)}`,
+      kind: 'escrow',
+      requestId: id,
+      providerId: request.providerId,
+      userId: demoSession?.id,
+      provider: 'local',
+      amount: (amount ?? request.escrow.amount) || request.quote?.amount || request.budget,
+      currency: 'MXN',
+      status: action === 'refund' ? 'refunded' : 'paid',
+      createdAt: nowIso(),
+      updatedAt: nowIso()
+    };
+    request.escrow = { amount: payment.amount, status: nextStatus };
+    request.timeline.push({ id: nanoid(), status: action === 'refund' ? 'reembolso' : request.status, label: `Escrow actualizado por ${role}.`, actor: role, createdAt: nowIso() });
+    demoPayments.unshift(payment);
+    pushAudit(`escrow.${action}`, 'serviceRequest', id, { paymentId: payment.id });
+    return clone({ payment, request } satisfies PaymentCheckout);
+  },
+
+  async review(id: string, rating: number, comment: string) {
+    assertDemoSession();
+    const request = ensureRequest(id);
+    request.review = { rating, comment };
+    pushAudit('review.created', 'serviceRequest', id, { rating });
+    return clone(request);
+  },
+
+  async dispute(id: string, reason: string) {
+    assertDemoSession();
+    const request = ensureRequest(id);
+    request.status = 'disputa';
+    request.dispute = { reason, status: 'abierta' };
+    request.timeline.push({ id: nanoid(), status: 'disputa', label: 'Cliente abrio disputa con evidencia.', actor: 'cliente', createdAt: nowIso() });
+    pushAudit('dispute.created', 'serviceRequest', id);
+    return clone(request);
+  },
+
+  async provider(providerId?: string) {
+    const session = assertDemoSession();
+    return clone(ensureProvider(providerId ?? session.providerId ?? 'prov_1'));
+  },
+
+  async providers() {
+    assertDemoSession();
+    return clone(demoProviders);
+  },
+
+  async updateProviderLocation(providerId: string, location: Provider['location']) {
+    assertDemoSession();
+    const provider = ensureProvider(providerId);
+    provider.location = location;
+    pushAudit('provider.location.updated', 'provider', providerId);
+    return clone(provider);
+  },
+
+  async paySubscription(providerId: string, plan: Provider['subscription']['plan'], price: number) {
+    assertDemoSession();
+    const provider = ensureProvider(providerId);
+    provider.subscription = { plan, status: 'activa', renewalDate: '2026-06-20', price };
+    const payment: PaymentRecord = {
+      id: `pay_${nanoid(10)}`,
+      kind: 'subscription',
+      providerId,
+      provider: 'local',
+      amount: price,
+      currency: 'MXN',
+      status: 'paid',
+      createdAt: nowIso(),
+      updatedAt: nowIso()
+    };
+    demoPayments.unshift(payment);
+    return clone({ payment, provider } satisfies PaymentCheckout);
+  },
+
+  async documents(requestId: string) {
+    assertDemoSession();
+    return clone(demoDocuments.filter((document) => document.requestId === requestId));
+  },
+
+  async createDocument(requestId: string, payload: Pick<SupportDocument, 'docType' | 'fileName' | 'fileUrl'>) {
+    const session = assertDemoSession();
+    const document: SupportDocument = {
+      id: `doc_${nanoid(10)}`,
+      requestId,
+      uploadedBy: session.id,
+      reviewStatus: 'pendiente',
+      storageProvider: 'url',
+      uploadStatus: 'attached',
+      createdAt: nowIso(),
+      ...payload
+    };
+    demoDocuments.unshift(document);
+    pushAudit('supportDocument.created', 'supportDocument', document.id, { requestId });
+    return clone(document);
+  },
+
+  async uploadDocumentFile(requestId: string, file: File) {
+    return this.createDocument(requestId, {
+      docType: 'evidencia',
+      fileName: file.name,
+      fileUrl: URL.createObjectURL(file)
     });
-    accessToken = payload.accessToken;
-    return payload.user;
   },
-  async refresh() {
-    const payload = await apiFetch<AuthPayload>('/api/auth/refresh', { method: 'POST' }, true);
-    accessToken = payload.accessToken;
-    return payload;
+
+  async metrics() {
+    const activeRequests = demoRequests.filter((request) => request.status !== 'cerrada').length;
+    const escrowBalance = demoRequests.reduce((total, request) => total + (request.escrow.status === 'retenido' ? request.escrow.amount : 0), 0);
+    return clone({ ...seedMetrics, activeRequests, activeProviders: demoProviders.length, escrowBalance });
   },
-  logout() {
-    accessToken = '';
-    return apiFetch<{ ok: boolean }>('/api/auth/logout', { method: 'POST' });
+
+  async disputes() {
+    assertDemoSession();
+    return clone(demoRequests.filter((request) => request.status === 'disputa'));
   },
-  config() {
-    return apiFetch<RuntimeConfig>('/api/config');
+
+  async verifyProvider(providerId: string, verified: boolean) {
+    assertDemoSession();
+    const provider = ensureProvider(providerId);
+    provider.verified = verified;
+    pushAudit('provider.verified.updated', 'provider', providerId, { verified });
+    return clone(provider);
   },
-  categories() {
-    return apiFetch<Category[]>('/api/categories');
+
+  async resolveDispute(requestId: string, resolution: 'release' | 'refund') {
+    assertDemoSession();
+    const request = ensureRequest(requestId);
+    if (request.dispute) request.dispute.status = 'resuelta';
+    request.status = resolution === 'release' ? 'cerrada' : 'reembolso';
+    request.escrow.status = resolution === 'release' ? 'liberado' : 'reembolsado';
+    pushAudit('dispute.resolved', 'serviceRequest', requestId, { resolution });
+    return clone(request);
   },
-  featuredCategories() {
-    return apiFetch<Category[]>('/api/categories/featured');
+
+  async auditLogs() {
+    assertDemoSession();
+    return clone(demoAuditLogs);
   },
-  notifications(_role: Role) {
-    void _role;
-    return apiFetch<NotificationEvent[]>('/api/notifications');
+
+  async fraudSignals() {
+    const signals: FraudSignal[] = demoRequests
+      .filter((request) => request.dispute || (request.fraudScore ?? 0) > 50)
+      .map((request) => ({
+        id: `fraud_${request.id}`,
+        requestId: request.id,
+        requestTitle: request.title,
+        score: request.fraudScore ?? 70,
+        reason: request.dispute ? 'Solicitud en disputa con evidencia pendiente.' : 'Patron operativo requiere revision.',
+        createdAt: request.createdAt
+      }));
+    return clone(signals);
   },
-  requests(filters: RequestFilters) {
-    return apiFetch<ServiceRequest[]>(`/api/requests${qs(filters)}`);
+
+  async payments() {
+    assertDemoSession();
+    return clone(demoPayments);
   },
-  createRequest(payload: CreateRequestPayload) {
-    return apiFetch<ServiceRequest>('/api/requests', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
+
+  async reconcilePayments() {
+    assertDemoSession();
+    pushAudit('payments.reconciled', 'payment');
+    return clone(demoPayments);
   },
-  request(id: string) {
-    return apiFetch<ServiceRequest>(`/api/requests/${id}`);
+
+  async supportDocuments() {
+    assertDemoSession();
+    return clone(demoDocuments);
   },
-  updateStatus(id: string, _role: Role, status: RequestStatus, label: string) {
-    void _role;
-    return apiFetch<ServiceRequest>(`/api/requests/${id}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status, label })
-    });
-  },
-  quoteRequest(id: string, _providerId: string, amount: number, message: string) {
-    return apiFetch<ServiceRequest>(`/api/requests/${id}/quote`, {
-      method: 'POST',
-      body: JSON.stringify({ amount, message })
-    });
-  },
-  acceptRequest(id: string, _providerId: string, amount: number, message: string) {
-    return apiFetch<ServiceRequest>(`/api/requests/${id}/accept`, {
-      method: 'POST',
-      body: JSON.stringify({ amount, message })
-    });
-  },
-  messages(id: string) {
-    return apiFetch<ChatMessage[]>(`/api/requests/${id}/messages`);
-  },
-  sendMessage(id: string, _senderRole: Role, _senderName: string, message: string) {
-    return apiFetch<ChatMessage>(`/api/requests/${id}/messages`, {
-      method: 'POST',
-      body: JSON.stringify({ message })
-    });
-  },
-  escrow(id: string, _role: Role, action: 'pay' | 'release' | 'refund', amount?: number) {
-    return apiFetch<PaymentCheckout>(`/api/requests/${id}/escrow`, {
-      method: 'POST',
-      body: JSON.stringify({ action, amount })
-    });
-  },
-  review(id: string, rating: number, comment: string) {
-    return apiFetch<ServiceRequest>(`/api/requests/${id}/review`, {
-      method: 'POST',
-      body: JSON.stringify({ rating, comment })
-    });
-  },
-  dispute(id: string, reason: string) {
-    return apiFetch<ServiceRequest>(`/api/requests/${id}/dispute`, {
-      method: 'POST',
-      body: JSON.stringify({ reason })
-    });
-  },
-  provider(_providerId?: string) {
-    void _providerId;
-    return apiFetch<Provider>('/api/providers/me');
-  },
-  providers() {
-    return apiFetch<Provider[]>('/api/providers');
-  },
-  updateProviderLocation(providerId: string, payload: Provider['location']) {
-    return apiFetch<Provider>(`/api/providers/${providerId}/location`, {
-      method: 'PATCH',
-      body: JSON.stringify(payload)
-    });
-  },
-  paySubscription(providerId: string, plan: Provider['subscription']['plan'], price: number) {
-    return apiFetch<PaymentCheckout>(`/api/providers/${providerId}/subscription/pay`, {
-      method: 'POST',
-      body: JSON.stringify({ plan, price })
-    });
-  },
-  documents(requestId: string) {
-    return apiFetch<SupportDocument[]>(`/api/requests/${requestId}/documents`);
-  },
-  createDocument(requestId: string, payload: Pick<SupportDocument, 'docType' | 'fileName' | 'fileUrl'>) {
-    return apiFetch<SupportDocument>(`/api/requests/${requestId}/documents`, {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-  },
-  uploadDocumentTarget(requestId: string, payload: { fileName: string; contentType: string; provider?: 's3' | 'cloudinary' }) {
-    return apiFetch<UploadTarget>(`/api/requests/${requestId}/upload-target`, {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-  },
-  metrics() {
-    return apiFetch<Metrics>('/api/admin/metrics');
-  },
-  disputes() {
-    return apiFetch<ServiceRequest[]>('/api/admin/disputes');
-  },
-  verifyProvider(providerId: string, verified: boolean) {
-    return apiFetch<Provider>(`/api/admin/providers/${providerId}/verify`, {
-      method: 'PATCH',
-      body: JSON.stringify({ verified })
-    });
-  },
-  resolveDispute(requestId: string, resolution: 'release' | 'refund') {
-    return apiFetch<ServiceRequest>(`/api/admin/disputes/${requestId}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ resolution })
-    });
-  },
-  auditLogs() {
-    return apiFetch<AuditLog[]>('/api/admin/audit');
-  },
-  fraudSignals() {
-    return apiFetch<FraudSignal[]>('/api/admin/fraud');
-  },
-  payments() {
-    return apiFetch<PaymentRecord[]>('/api/admin/payments');
-  },
-  reconcilePayments() {
-    return apiFetch<PaymentRecord[]>('/api/admin/payments/reconcile', { method: 'POST' });
-  },
-  supportDocuments() {
-    return apiFetch<SupportDocument[]>('/api/admin/support-documents');
-  },
-  heatmap() {
-    return apiFetch<HeatPoint[]>('/api/insights/heatmap');
+
+  async heatmap() {
+    return clone(seedHeatPoints);
   }
 };
+
+export const api = isFirebaseConfigured() ? firebaseRepository : demoApi;
+
+export function usingFirebaseBackend() {
+  return isFirebaseConfigured();
+}
