@@ -6,6 +6,7 @@ data/
 backups/
 playwright-report/
 test-results/
+firestore-debug.log
 *.tsbuildinfo
 .DS_Store
 .vercel

@@ -21,7 +21,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "vitest run --config vitest.config.ts",
-    "test:rules": "firebase emulators:exec --only firestore \"vitest run tests/rules --environment node\"",
+    "test:rules": "PATH=/opt/homebrew/opt/openjdk/bin:$PATH firebase emulators:exec --only firestore \"vitest run --config vitest.rules.config.ts\"",
     "test:watch": "vitest --config vitest.config.ts",
     "test:e2e": "playwright test",
     "test:load": "tsx server/scripts/load-smoke.ts",
