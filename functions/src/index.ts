@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { FieldValue, getFirestore, type DocumentReference, type Transaction } from 'firebase-admin/firestore';
+import * as Sentry from '@sentry/node';
 import { defineSecret, defineString } from 'firebase-functions/params';
 import { onRequest, type Request } from 'firebase-functions/v2/https';
 import Stripe from 'stripe';
@@ -10,6 +11,8 @@ initializeApp();
 
 const appOrigin = defineString('APP_ORIGIN', { default: 'https://app-proveedores.vercel.app' });
 const paymentProvider = defineString('PAYMENT_PROVIDER', { default: 'local' });
+const sentryDsn = defineString('SENTRY_DSN', { default: '' });
+const sentryEnvironment = defineString('SENTRY_ENVIRONMENT', { default: 'production' });
 const stripeSecretKey = defineSecret('STRIPE_SECRET_KEY');
 const stripeWebhookSecret = defineSecret('STRIPE_WEBHOOK_SECRET');
 const mercadoPagoAccessToken = defineSecret('MERCADOPAGO_ACCESS_TOKEN');
@@ -18,6 +21,24 @@ const mercadoPagoWebhookSecret = defineSecret('MERCADOPAGO_WEBHOOK_SECRET');
 type Role = 'cliente' | 'proveedor' | 'admin';
 type EscrowAction = 'pay' | 'release' | 'refund';
 type PaymentStatus = 'pending' | 'requires_action' | 'paid' | 'failed' | 'refunded';
+
+let sentryReady = false;
+
+function initSentry() {
+  const dsn = sentryDsn.value();
+  if (!dsn || sentryReady) return;
+  Sentry.init({
+    dsn,
+    environment: sentryEnvironment.value(),
+    tracesSampleRate: 0.15
+  });
+  sentryReady = true;
+}
+
+function captureFunctionError(error: unknown, context: string, metadata: Record<string, unknown> = {}) {
+  initSentry();
+  if (sentryReady) Sentry.captureException(error, { tags: { context }, extra: metadata });
+}
 
 interface ServiceRequestData {
   clientId?: string;
@@ -377,6 +398,7 @@ export const setUserRole = onRequest(async (req, res) => {
 
     return json(res, 200, { data: { uid, role, providerId: providerId ?? null } });
   } catch (error) {
+    captureFunctionError(error, 'setUserRole');
     return json(res, 401, { message: error instanceof Error ? error.message : 'No autorizado.' });
   }
 });
@@ -411,6 +433,7 @@ export const escrowPayment = onRequest({ secrets: [stripeSecretKey, mercadoPagoA
     await writeAudit({ actorUserId: actor.uid, actorRole, action: `escrow.${action}`, entityType: 'serviceRequest', entityId: requestId, metadata: { paymentId: payment.id, provider: payment.provider } });
     return json(res, 200, { data: { payment } });
   } catch (error) {
+    captureFunctionError(error, 'escrowPayment');
     return json(res, 400, { message: error instanceof Error ? error.message : 'No pudimos procesar escrow.' });
   }
 });
@@ -443,6 +466,7 @@ export const stripeWebhook = onRequest({ secrets: [stripeSecretKey, stripeWebhoo
     await writeAudit({ action: 'stripe.webhook.verified', entityType: 'payment', entityId: paymentId, metadata: { eventId: event.id, eventType: event.type } });
     return json(res, 200, { received: true });
   } catch (error) {
+    captureFunctionError(error, 'stripeWebhook');
     await writeAudit({ action: 'stripe.webhook.rejected', entityType: 'payment', metadata: { reason: error instanceof Error ? error.message : 'unknown' } });
     return json(res, 400, { message: error instanceof Error ? error.message : 'Webhook Stripe invalido.' });
   }
@@ -470,6 +494,7 @@ export const mercadoPagoWebhook = onRequest({ secrets: [mercadoPagoAccessToken, 
     await writeAudit({ action: 'mercadopago.webhook.verified', entityType: 'payment', entityId: paymentId, metadata: { dataId, status: mercadoPagoPayment.status } });
     return json(res, 200, { received: true });
   } catch (error) {
+    captureFunctionError(error, 'mercadoPagoWebhook');
     await writeAudit({ action: 'mercadopago.webhook.rejected', entityType: 'payment', metadata: { reason: error instanceof Error ? error.message : 'unknown' } });
     return json(res, 400, { message: error instanceof Error ? error.message : 'Webhook Mercado Pago invalido.' });
   }
@@ -549,10 +574,37 @@ export const api = onRequest({ secrets: [stripeSecretKey, mercadoPagoAccessToken
       const { providerId, verified } = req.body as { providerId?: string; verified?: boolean };
       if (!providerId || typeof verified !== 'boolean') return json(res, 400, { message: 'Payload invalido.' });
       const providerRef = db.collection('providers').doc(providerId);
-      await providerRef.set({ verified, updatedAt: new Date().toISOString() }, { merge: true });
+      await providerRef.set({ verified, verificationStatus: verified ? 'aprobado' : 'sin_enviar', updatedAt: new Date().toISOString() }, { merge: true });
       const providerSnap = await providerRef.get();
       await writeAudit({ actorUserId: actor.uid, actorRole: 'admin', action: 'provider.verified.updated', entityType: 'provider', entityId: providerId, metadata: { verified } });
       return json(res, 200, { data: { id: providerSnap.id, ...providerSnap.data() } });
+    }
+
+    if (req.method === 'POST' && path === '/admin/provider-verifications/review') {
+      const { providerId, status, reason } = req.body as { providerId?: string; status?: 'aprobado' | 'rechazado'; reason?: string };
+      if (!providerId || !status || !['aprobado', 'rechazado'].includes(status)) return json(res, 400, { message: 'Payload invalido.' });
+
+      const verificationRef = db.collection('providerVerificationRequests').doc(providerId);
+      const providerRef = db.collection('providers').doc(providerId);
+      await db.runTransaction(async (transaction) => {
+        const verificationSnap = await transaction.get(verificationRef);
+        if (!verificationSnap.exists) throw new Error('Expediente KYC no encontrado.');
+        transaction.set(verificationRef, {
+          status,
+          rejectionReason: status === 'rechazado' ? reason ?? 'Documentacion incompleta o inconsistente.' : FieldValue.delete(),
+          reviewedAt: new Date().toISOString(),
+          reviewedBy: actor.uid,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+        transaction.set(providerRef, {
+          verified: status === 'aprobado',
+          verificationStatus: status,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      });
+      const verificationSnap = await verificationRef.get();
+      await writeAudit({ actorUserId: actor.uid, actorRole: 'admin', action: 'providerVerification.reviewed', entityType: 'provider', entityId: providerId, metadata: { status } });
+      return json(res, 200, { data: { id: verificationSnap.id, ...verificationSnap.data() } });
     }
 
     if (req.method === 'POST' && path === '/admin/disputes/resolve') {
@@ -579,6 +631,7 @@ export const api = onRequest({ secrets: [stripeSecretKey, mercadoPagoAccessToken
 
     return json(res, 404, { message: 'Ruta no encontrada.' });
   } catch (error) {
+    captureFunctionError(error, 'api', { path: req.path, method: req.method });
     return json(res, 400, { message: error instanceof Error ? error.message : 'No pudimos completar la operacion.' });
   }
 });

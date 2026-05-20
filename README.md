@@ -25,6 +25,8 @@ Produccion actual: https://app-proveedores-3.vercel.app
 - Cloud Functions: endpoints preparados para custom claims, escrow, pagos/webhooks y auditoria.
 - Firebase Emulator Suite: Auth, Firestore, Storage, Functions y Emulator UI.
 - Mapa: Mapbox cuando `VITE_MAPBOX_TOKEN` existe; OpenStreetMap como fallback publico sin token.
+- Observabilidad: Sentry opcional en frontend y Functions, breadcrumbs de sesion/rol, ErrorBoundary y alertas operativas en admin.
+- KYC: proveedores suben identificacion/RFC a Firebase Storage y admin aprueba/rechaza desde Functions.
 
 ## Desarrollo Local
 
@@ -80,6 +82,10 @@ Frontend Vite/Vercel, solo config publica:
 - `VITE_FIREBASE_MEASUREMENT_ID` opcional
 - `VITE_FIREBASE_FUNCTIONS_BASE_URL`
 - `VITE_MAPBOX_TOKEN` opcional
+- `VITE_SENTRY_DSN` opcional
+- `VITE_SENTRY_ENVIRONMENT` opcional
+- `VITE_SENTRY_TRACES_SAMPLE_RATE` opcional
+- `VITE_SENTRY_REPLAY_SAMPLE_RATE` opcional
 
 Backend/scripts/Functions, nunca en frontend:
 
@@ -89,6 +95,8 @@ Backend/scripts/Functions, nunca en frontend:
 - `STRIPE_WEBHOOK_SECRET`
 - `MERCADOPAGO_ACCESS_TOKEN`
 - `MERCADOPAGO_WEBHOOK_SECRET`
+- `SENTRY_DSN` opcional
+- `SENTRY_ENVIRONMENT` opcional
 
 ## Configuracion Firebase Manual
 
@@ -133,6 +141,7 @@ En Functions v2, configura tambien los params `APP_ORIGIN` y `PAYMENT_PROVIDER` 
 - Clientes crean y leen sus propias solicitudes.
 - Proveedores leen solicitudes abiertas y las asignadas/cotizadas segun la logica del marketplace.
 - Mensajes y documentos se autorizan por acceso a la solicitud.
+- KYC se autoriza por `providerId`/`ownerUid`; los documentos viven bajo `providerKyc/{providerId}` en Storage.
 - `payments` solo permite escritura admin/Functions.
 - `auditLogs` no permite escritura de clientes/proveedores.
 - Firestore y Storage tienen fallback deny-by-default.
@@ -199,10 +208,12 @@ Smoke test posterior a deploy:
 
 - Crear cuenta cliente y publicar solicitud.
 - Crear cuenta proveedor y cotizar/aceptar solicitud abierta.
+- Enviar expediente KYC de proveedor y aprobarlo desde admin.
 - Confirmar que Storage permite subir evidencia del caso.
 - Confirmar que cliente/proveedor no pueden leer panel admin.
 - Confirmar que cliente no puede escribir `payments` ni `auditLogs`.
 - Confirmar webhook de pago actualiza escrow desde Functions.
+- Confirmar que Sentry recibe errores si `VITE_SENTRY_DSN`/`SENTRY_DSN` estan configurados.
 
 ## Limitaciones Conocidas
 

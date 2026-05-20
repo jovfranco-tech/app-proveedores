@@ -171,6 +171,18 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    match /providerVerificationRequests/{providerIdDoc} {
+      allow create, update: if isProvider()
+        && providerIdDoc == providerId()
+        && request.resource.data.providerId == providerId()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.status == 'pendiente'
+        && request.resource.data.keys().hasOnly(['id', 'providerId', 'ownerUid', 'legalName', 'taxId', 'address', 'notes', 'status', 'documents', 'createdAt', 'updatedAt']);
+
+      allow read: if isAdmin() || (isProvider() && resource.data.providerId == providerId() && resource.data.ownerUid == request.auth.uid);
+      allow delete: if false;
+    }
+
     match /payments/{paymentId} {
       allow read: if isAdmin()
         || (signedIn() && resource.data.userId == request.auth.uid)

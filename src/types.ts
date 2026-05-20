@@ -89,6 +89,7 @@ export interface Provider {
   trade: string;
   categoryIds: string[];
   verified: boolean;
+  verificationStatus?: 'sin_enviar' | 'pendiente' | 'aprobado' | 'rechazado';
   rating: number;
   jobsCompleted: number;
   subscription: {
@@ -190,6 +191,42 @@ export interface SupportDocument {
   storageProvider?: 'url' | 's3' | 'cloudinary';
   objectKey?: string;
   uploadStatus?: 'pending' | 'uploaded' | 'attached';
+  createdAt: string;
+}
+
+export interface ProviderVerificationDocument {
+  id: string;
+  docType: 'identificacion' | 'rfc' | 'comprobante_domicilio' | 'certificacion' | 'portafolio';
+  fileName: string;
+  fileUrl: string;
+  objectKey: string;
+  uploadedAt: string;
+}
+
+export interface ProviderVerificationRequest {
+  id: string;
+  providerId: string;
+  ownerUid: string;
+  legalName: string;
+  taxId: string;
+  address: string;
+  status: 'pendiente' | 'aprobado' | 'rechazado';
+  notes?: string;
+  rejectionReason?: string;
+  documents: ProviderVerificationDocument[];
+  createdAt: string;
+  updatedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+}
+
+export interface OperationalAlert {
+  id: string;
+  severity: 'info' | 'warning' | 'critical';
+  title: string;
+  message: string;
+  source: 'payments' | 'disputes' | 'kyc' | 'security' | 'system';
+  status: 'open' | 'acknowledged' | 'resolved';
   createdAt: string;
 }
 

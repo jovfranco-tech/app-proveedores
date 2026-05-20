@@ -33,9 +33,12 @@ import type {
   HeatPoint,
   Metrics,
   NotificationEvent,
+  OperationalAlert,
   PaymentCheckout,
   PaymentRecord,
   Provider,
+  ProviderVerificationDocument,
+  ProviderVerificationRequest,
   RequestStatus,
   Role,
   RuntimeConfig,
@@ -75,6 +78,15 @@ export interface SignupPayload {
   email: string;
   password: string;
   role: Exclude<Role, 'admin'>;
+}
+
+export interface ProviderVerificationPayload {
+  providerId: string;
+  legalName: string;
+  taxId: string;
+  address: string;
+  notes?: string;
+  files: Array<{ docType: ProviderVerificationDocument['docType']; file: File }>;
 }
 
 const nowIso = () => new Date().toISOString();
@@ -484,6 +496,57 @@ export const firebaseRepository = {
     return { id: documentId, ...documentPayload };
   },
 
+  async providerVerification(providerId: string) {
+    try {
+      return await getById<ProviderVerificationRequest>('providerVerificationRequests', providerId);
+    } catch {
+      return null;
+    }
+  },
+
+  async submitProviderVerification(payload: ProviderVerificationPayload) {
+    const { auth, db, storage } = getFirebaseClient();
+    if (!auth.currentUser) throw new Error('Inicia sesion para enviar verificacion.');
+    const requestId = payload.providerId;
+    const createdAt = nowIso();
+    const documents: ProviderVerificationDocument[] = [];
+
+    for (const item of payload.files) {
+      const documentId = nanoid();
+      const objectKey = `providerKyc/${payload.providerId}/${documentId}/${item.file.name}`;
+      const storageRef = ref(storage, objectKey);
+      await uploadBytes(storageRef, item.file, {
+        contentType: item.file.type || 'application/octet-stream',
+        customMetadata: { providerId: payload.providerId, uploadedBy: auth.currentUser.uid, docType: item.docType }
+      });
+      documents.push({
+        id: documentId,
+        docType: item.docType,
+        fileName: item.file.name,
+        fileUrl: await getDownloadURL(storageRef),
+        objectKey,
+        uploadedAt: nowIso()
+      });
+    }
+
+    const verification: ProviderVerificationRequest = {
+      id: requestId,
+      providerId: payload.providerId,
+      ownerUid: auth.currentUser.uid,
+      legalName: payload.legalName,
+      taxId: payload.taxId,
+      address: payload.address,
+      notes: payload.notes,
+      status: 'pendiente',
+      documents,
+      createdAt,
+      updatedAt: createdAt
+    };
+
+    await setDoc(doc(db, 'providerVerificationRequests', requestId), verification);
+    return verification;
+  },
+
   async metrics(): Promise<Metrics> {
     const [requests, providers] = await Promise.all([this.requests({ role: 'admin' }), this.providers()]);
     return {
@@ -525,6 +588,71 @@ export const firebaseRepository = {
 
   supportDocuments() {
     return listCollection<SupportDocument>('supportDocuments', [orderBy('createdAt', 'desc'), limit(50)]);
+  },
+
+  providerVerifications() {
+    return listCollection<ProviderVerificationRequest>('providerVerificationRequests', [orderBy('createdAt', 'desc'), limit(50)]);
+  },
+
+  reviewProviderVerification(providerId: string, status: 'aprobado' | 'rechazado', reason?: string) {
+    return callPrivileged<ProviderVerificationRequest>('/admin/provider-verifications/review', { providerId, status, reason });
+  },
+
+  async operationalAlerts() {
+    const [disputes, verifications, payments, fraudSignals] = await Promise.all([
+      this.disputes(),
+      this.providerVerifications(),
+      this.payments(),
+      this.fraudSignals()
+    ]);
+    const now = nowIso();
+    const alerts: OperationalAlert[] = [];
+    const pendingKyc = verifications.filter((item) => item.status === 'pendiente');
+    if (pendingKyc.length) {
+      alerts.push({
+        id: 'kyc_pending',
+        severity: pendingKyc.length > 5 ? 'critical' : 'warning',
+        title: 'KYC pendiente',
+        message: `${pendingKyc.length} proveedor(es) esperan revision documental.`,
+        source: 'kyc',
+        status: 'open',
+        createdAt: now
+      });
+    }
+    if (disputes.length) {
+      alerts.push({
+        id: 'disputes_open',
+        severity: disputes.length > 3 ? 'critical' : 'warning',
+        title: 'Disputas abiertas',
+        message: `${disputes.length} caso(s) requieren resolucion de soporte.`,
+        source: 'disputes',
+        status: 'open',
+        createdAt: now
+      });
+    }
+    if (payments.some((payment) => payment.status === 'requires_action')) {
+      alerts.push({
+        id: 'payments_requires_action',
+        severity: 'info',
+        title: 'Pagos esperando confirmacion',
+        message: 'Hay checkouts creados que aun no han sido confirmados por webhook.',
+        source: 'payments',
+        status: 'open',
+        createdAt: now
+      });
+    }
+    if (fraudSignals.some((signal) => signal.score >= 75)) {
+      alerts.push({
+        id: 'fraud_high_score',
+        severity: 'critical',
+        title: 'Senales antifraude altas',
+        message: 'Hay solicitudes con score antifraude elevado.',
+        source: 'security',
+        status: 'open',
+        createdAt: now
+      });
+    }
+    return alerts;
   },
 
   async heatmap() {

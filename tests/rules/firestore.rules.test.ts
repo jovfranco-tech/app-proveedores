@@ -146,4 +146,37 @@ describe('Firestore security rules', () => {
     const payment = await getDoc(doc(db, 'payments/payment_1'));
     expect(payment.data()?.status).toBe('refunded');
   });
+
+  it('allows providers to submit only their own KYC expediente', async () => {
+    const db = authed('provider_user_1');
+    await assertSucceeds(
+      setDoc(doc(db, 'providerVerificationRequests/provider_1'), {
+        id: 'provider_1',
+        providerId: 'provider_1',
+        ownerUid: 'provider_user_1',
+        legalName: 'Proveedor SA de CV',
+        taxId: 'ABC010203XYZ',
+        address: 'CDMX',
+        status: 'pendiente',
+        documents: [],
+        createdAt: '2026-05-20T00:00:00.000Z',
+        updatedAt: '2026-05-20T00:00:00.000Z'
+      })
+    );
+
+    await assertFails(
+      setDoc(doc(db, 'providerVerificationRequests/provider_2'), {
+        id: 'provider_2',
+        providerId: 'provider_2',
+        ownerUid: 'provider_user_1',
+        legalName: 'Otro proveedor',
+        taxId: 'ABC010203XYZ',
+        address: 'CDMX',
+        status: 'pendiente',
+        documents: [],
+        createdAt: '2026-05-20T00:00:00.000Z',
+        updatedAt: '2026-05-20T00:00:00.000Z'
+      })
+    );
+  });
 });

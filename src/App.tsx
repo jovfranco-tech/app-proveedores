@@ -28,8 +28,9 @@ import {
 } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ElementType, ReactNode } from 'react';
-import { api, CreateRequestPayload, RequestFilters, SignupPayload, usingFirebaseBackend } from './api';
+import { api, CreateRequestPayload, ProviderVerificationPayload, RequestFilters, SignupPayload, usingFirebaseBackend } from './api';
 import { ServiceRequestForm } from './components/ServiceRequestForm';
+import { addAppBreadcrumb, captureAppError, setObservabilityUser, trackRoleNavigation } from './observability';
 import type {
   AuditLog,
   Category,
@@ -38,9 +39,12 @@ import type {
   HeatPoint,
   Metrics,
   NotificationEvent as AppNotification,
+  OperationalAlert,
   PaymentCheckout,
   PaymentRecord,
   Provider,
+  ProviderVerificationDocument,
+  ProviderVerificationRequest,
   RequestStatus,
   Role,
   RuntimeConfig,
@@ -393,10 +397,10 @@ function AuthPanel({
   return (
     <form className="auth-panel" onSubmit={submit} aria-label="Inicio de sesion por rol">
       <div className="segmented" role="group" aria-label="Modo de acceso">
-        <button className={mode === 'login' ? 'active' : ''} type="button" onClick={() => setMode('login')}>
+        <button className={mode === 'login' ? 'active' : ''} type="button" aria-label="Usar modo entrar" onClick={() => setMode('login')}>
           Entrar
         </button>
-        <button className={mode === 'signup' ? 'active' : ''} type="button" onClick={() => setMode('signup')}>
+        <button className={mode === 'signup' ? 'active' : ''} type="button" aria-label="Usar modo crear cuenta" onClick={() => setMode('signup')}>
           Crear cuenta
         </button>
       </div>
@@ -429,7 +433,7 @@ function AuthPanel({
         Contraseña
         <input required minLength={8} type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
       </label>
-      <button className="primary-button" type="submit" disabled={busy}>
+      <button className="primary-button" type="submit" disabled={busy} aria-label={mode === 'signup' ? 'Enviar formulario para crear cuenta' : 'Enviar formulario para entrar'}>
         {mode === 'signup' ? <UserPlus aria-hidden="true" size={18} /> : <LogIn aria-hidden="true" size={18} />}
         {mode === 'signup' ? 'Crear cuenta' : 'Entrar'}
       </button>
@@ -620,6 +624,7 @@ function ClientPanel({
 
 function ProviderPanel({
   provider,
+  verification,
   categories,
   requests,
   filters,
@@ -629,11 +634,13 @@ function ProviderPanel({
   onApplyFilters,
   onPayPlan,
   onUpdateLocation,
+  onSubmitVerification,
   onAccept,
   onQuote,
   onOpenDetail
 }: {
   provider: Provider | null;
+  verification: ProviderVerificationRequest | null;
   categories: Category[];
   requests: ServiceRequest[];
   filters: RequestFilters;
@@ -643,6 +650,7 @@ function ProviderPanel({
   onApplyFilters: () => void;
   onPayPlan: (plan: Provider['subscription']['plan'], price: number) => void;
   onUpdateLocation: (address: string) => void;
+  onSubmitVerification: (payload: ProviderVerificationPayload) => void;
   onAccept: (request: ServiceRequest) => void;
   onQuote: (request: ServiceRequest) => void;
   onOpenDetail: (id: string) => void;
@@ -703,6 +711,7 @@ function ProviderPanel({
                   Actualizar
                 </button>
               </form>
+              <ProviderKycPanel provider={provider} verification={verification} busy={busy} onSubmitVerification={onSubmitVerification} />
             </>
           ) : (
             <LoadingBlock label="Cargando proveedor..." />
@@ -785,6 +794,85 @@ function ProviderPanel({
         </section>
       </div>
     </section>
+  );
+}
+
+function ProviderKycPanel({
+  provider,
+  verification,
+  busy,
+  onSubmitVerification
+}: {
+  provider: Provider;
+  verification: ProviderVerificationRequest | null;
+  busy: boolean;
+  onSubmitVerification: (payload: ProviderVerificationPayload) => void;
+}) {
+  const [legalName, setLegalName] = useState(verification?.legalName ?? provider.name);
+  const [taxId, setTaxId] = useState(verification?.taxId ?? '');
+  const [address, setAddress] = useState(verification?.address ?? provider.location.address);
+  const [notes, setNotes] = useState(verification?.notes ?? '');
+  const [files, setFiles] = useState<ProviderVerificationPayload['files']>([]);
+
+  useEffect(() => {
+    setLegalName(verification?.legalName ?? provider.name);
+    setTaxId(verification?.taxId ?? '');
+    setAddress(verification?.address ?? provider.location.address);
+    setNotes(verification?.notes ?? '');
+  }, [provider, verification]);
+
+  function setDocFile(docType: ProviderVerificationDocument['docType'], file?: File) {
+    setFiles((current) => [...current.filter((item) => item.docType !== docType), ...(file ? [{ docType, file }] : [])]);
+  }
+
+  const canSubmit = legalName.trim().length > 2 && taxId.trim().length >= 12 && address.trim().length > 6 && files.length >= 2;
+  const status = verification?.status ?? (provider.verified ? 'aprobado' : 'sin_enviar');
+
+  return (
+    <form
+      className="kyc-form"
+      aria-label="Verificacion documental de proveedor"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmitVerification({ providerId: provider.id, legalName, taxId, address, notes, files });
+      }}
+    >
+      <div className="panel-heading">
+        <h3>KYC proveedor</h3>
+        <span className={`pill ${status === 'aprobado' ? 'success' : status === 'rechazado' ? 'danger' : status === 'pendiente' ? 'warning' : 'neutral'}`}>
+          {status}
+        </span>
+      </div>
+      <p>Sube identificacion y RFC/comprobante para verificacion real por admin.</p>
+      <label>
+        Nombre legal
+        <input required minLength={3} value={legalName} onChange={(event) => setLegalName(event.target.value)} />
+      </label>
+      <label>
+        RFC
+        <input required minLength={12} maxLength={13} value={taxId} onChange={(event) => setTaxId(event.target.value.toUpperCase())} />
+      </label>
+      <label>
+        Domicilio fiscal
+        <input required minLength={7} value={address} onChange={(event) => setAddress(event.target.value)} />
+      </label>
+      <label>
+        Notas para revision
+        <textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
+      </label>
+      <label>
+        Identificacion oficial
+        <input required={!verification} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setDocFile('identificacion', event.target.files?.[0])} />
+      </label>
+      <label>
+        RFC o comprobante
+        <input required={!verification} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setDocFile('rfc', event.target.files?.[0])} />
+      </label>
+      {verification?.rejectionReason ? <p className="error-text">Motivo de rechazo: {verification.rejectionReason}</p> : null}
+      <button className="secondary-button" disabled={busy || !canSubmit} type="submit">
+        Enviar KYC
+      </button>
+    </form>
   );
 }
 
@@ -1074,11 +1162,14 @@ function AdminPanel({
   fraudSignals,
   payments,
   supportDocuments,
+  providerVerifications,
+  operationalAlerts,
   categories,
   loading,
   busy,
   onVerify,
   onResolve,
+  onReviewVerification,
   onReconcile,
   onOpenDetail
 }: {
@@ -1089,11 +1180,14 @@ function AdminPanel({
   fraudSignals: FraudSignal[];
   payments: PaymentRecord[];
   supportDocuments: SupportDocument[];
+  providerVerifications: ProviderVerificationRequest[];
+  operationalAlerts: OperationalAlert[];
   categories: Category[];
   loading: boolean;
   busy: boolean;
   onVerify: (provider: Provider) => void;
   onResolve: (request: ServiceRequest, resolution: 'release' | 'refund') => void;
+  onReviewVerification: (providerId: string, status: 'aprobado' | 'rechazado', reason?: string) => void;
   onReconcile: () => void;
   onOpenDetail: (id: string) => void;
 }) {
@@ -1113,6 +1207,22 @@ function AdminPanel({
         <MetricCard label="Escrow retenido" value={formatMoney(metrics?.escrowBalance ?? 0)} />
         <MetricCard label="Disputas abiertas" value={metrics?.disputesOpen ?? 0} />
       </div>
+      <section className="workspace-panel alerts-panel" aria-labelledby="alerts-title">
+        <div className="panel-heading">
+          <h3 id="alerts-title">Alertas operativas</h3>
+          <Activity aria-hidden="true" size={20} />
+        </div>
+        {operationalAlerts.length === 0 ? <p className="muted">Sin alertas abiertas. El tablero operativo se ve saludable.</p> : null}
+        <div className="ops-list">
+          {operationalAlerts.map((alert) => (
+            <article className={`alert-row ${alert.severity}`} key={alert.id}>
+              <strong>{alert.title}</strong>
+              <p>{alert.message}</p>
+              <small>{alert.source} · {alert.severity}</small>
+            </article>
+          ))}
+        </div>
+      </section>
       <div className="admin-grid">
         <section className="workspace-panel" aria-labelledby="verify-title">
           <h3 id="verify-title">Verificar proveedores</h3>
@@ -1129,6 +1239,36 @@ function AdminPanel({
                 <button className={provider.verified ? 'ghost-button' : 'primary-button'} disabled={busy} type="button" onClick={() => onVerify(provider)}>
                   {provider.verified ? 'Quitar verificacion' : 'Verificar'}
                 </button>
+              </article>
+            ))}
+          </div>
+        </section>
+        <section className="workspace-panel" aria-labelledby="kyc-review-title">
+          <h3 id="kyc-review-title">Revision KYC</h3>
+          {providerVerifications.length === 0 ? <EmptyState title="Sin expedientes KYC" text="Los envios documentales de proveedores apareceran aqui." /> : null}
+          <div className="provider-list">
+            {providerVerifications.map((verification) => (
+              <article key={verification.id} className="provider-row">
+                <div>
+                  <strong>{verification.legalName}</strong>
+                  <p>{verification.taxId} · {verification.status}</p>
+                  <small>{verification.documents.length} documento(s) · {verification.address}</small>
+                  <div className="document-links">
+                    {verification.documents.map((document) => (
+                      <a key={document.id} href={document.fileUrl} target="_blank" rel="noreferrer">
+                        {document.docType}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+                <div className="row-actions">
+                  <button className="primary-button compact" disabled={busy || verification.status === 'aprobado'} type="button" onClick={() => onReviewVerification(verification.providerId, 'aprobado')}>
+                    Aprobar
+                  </button>
+                  <button className="danger-button compact" disabled={busy || verification.status === 'rechazado'} type="button" onClick={() => onReviewVerification(verification.providerId, 'rechazado', 'Documentacion incompleta o inconsistente.')}>
+                    Rechazar
+                  </button>
+                </div>
               </article>
             ))}
           </div>
@@ -1386,7 +1526,10 @@ export function App() {
   const [featured, setFeatured] = useState<Category[]>([]);
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [provider, setProvider] = useState<Provider | null>(null);
+  const [providerVerification, setProviderVerification] = useState<ProviderVerificationRequest | null>(null);
   const [providers, setProviders] = useState<Provider[]>([]);
+  const [providerVerifications, setProviderVerifications] = useState<ProviderVerificationRequest[]>([]);
+  const [operationalAlerts, setOperationalAlerts] = useState<OperationalAlert[]>([]);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [disputes, setDisputes] = useState<ServiceRequest[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -1420,6 +1563,10 @@ export function App() {
     window.setTimeout(() => setToast(null), 4200);
   }, []);
 
+  useEffect(() => {
+    setObservabilityUser(session);
+  }, [session]);
+
   const loadCore = useCallback(async (role?: Role) => {
     setLoading(true);
     setError(null);
@@ -1439,6 +1586,7 @@ export function App() {
       setMetrics(metricsData);
       setNotifications(notificationsData);
     } catch (err) {
+      captureAppError(err, 'loadCore', { role });
       setError(err instanceof Error ? err.message : 'Error inesperado al cargar catalogo.');
     } finally {
       setLoading(false);
@@ -1457,17 +1605,21 @@ export function App() {
         }
         if (activeSession.role === 'proveedor') {
           const providerId = activeSession.providerId ?? 'prov_1';
-          const [providerData, requestData] = await Promise.all([
+          const [providerData, requestData, verificationData] = await Promise.all([
             api.provider(providerId),
-            api.requests({ ...filters, role: 'proveedor', providerId })
+            api.requests({ ...filters, role: 'proveedor', providerId }),
+            api.providerVerification(providerId)
           ]);
           setProvider(providerData);
           setRequests(requestData);
+          setProviderVerification(verificationData);
         }
         if (activeSession.role === 'admin') {
-          const [metricsData, providerData, disputeData, requestData, auditData, fraudData, paymentData, supportData] = await Promise.all([
+          const [metricsData, providerData, verificationData, alertData, disputeData, requestData, auditData, fraudData, paymentData, supportData] = await Promise.all([
             api.metrics(),
             api.providers(),
+            api.providerVerifications(),
+            api.operationalAlerts(),
             api.disputes(),
             api.requests({ role: 'admin' }),
             api.auditLogs(),
@@ -1477,6 +1629,8 @@ export function App() {
           ]);
           setMetrics(metricsData);
           setProviders(providerData);
+          setProviderVerifications(verificationData);
+          setOperationalAlerts(alertData);
           setDisputes(disputeData);
           setRequests(requestData);
           setAuditLogs(auditData);
@@ -1485,6 +1639,7 @@ export function App() {
           setSupportDocuments(supportData);
         }
       } catch (err) {
+        captureAppError(err, 'loadRoleData', { role: activeSession.role });
         setError(err instanceof Error ? err.message : 'Error al cargar datos del rol.');
       } finally {
         setRoleLoading(false);
@@ -1501,6 +1656,7 @@ export function App() {
       setMessages(messageData);
       setDocuments(documentData);
     } catch (err) {
+      captureAppError(err, 'loadDetail', { id });
       setError(err instanceof Error ? err.message : 'No pudimos cargar el detalle.');
     } finally {
       setDetailLoading(false);
@@ -1557,7 +1713,10 @@ export function App() {
       if (!nextSession) {
         setRequests([]);
         setProvider(null);
+        setProviderVerification(null);
         setProviders([]);
+        setProviderVerifications([]);
+        setOperationalAlerts([]);
         setView('home');
       }
     });
@@ -1577,8 +1736,10 @@ export function App() {
       setView(routeForRole(nextSession.role));
       await loadCore(nextSession.role);
       await loadRoleData(nextSession);
+      addAppBreadcrumb('login_success', { role: nextSession.role });
       showToast('success', `Sesion activa como ${roleLabels[nextSession.role]}.`);
     } catch (err) {
+      captureAppError(err, 'login', { role });
       showToast('error', err instanceof Error ? err.message : 'No pudimos iniciar sesion.');
     } finally {
       setBusy(false);
@@ -1593,8 +1754,10 @@ export function App() {
       setView(routeForRole(nextSession.role));
       await loadCore(nextSession.role);
       await loadRoleData(nextSession);
+      addAppBreadcrumb('signup_success', { role: nextSession.role });
       showToast('success', `Cuenta creada como ${roleLabels[nextSession.role]}.`);
     } catch (err) {
+      captureAppError(err, 'signup', { role: payload.role });
       showToast('error', err instanceof Error ? err.message : 'No pudimos crear la cuenta.');
     } finally {
       setBusy(false);
@@ -1607,6 +1770,11 @@ export function App() {
       await api.logout();
       setSession(null);
       setRequests([]);
+      setProvider(null);
+      setProviderVerification(null);
+      setProviders([]);
+      setProviderVerifications([]);
+      setOperationalAlerts([]);
       setSelectedRequest(null);
       setSelectedRequestId(null);
       setMessages([]);
@@ -1616,6 +1784,7 @@ export function App() {
       await loadCore();
       showToast('success', 'Sesion cerrada.');
     } catch (err) {
+      captureAppError(err, 'logout');
       showToast('error', err instanceof Error ? err.message : 'No pudimos cerrar sesion.');
     } finally {
       setBusy(false);
@@ -1630,6 +1799,7 @@ export function App() {
       if (selectedRequestId) await loadDetail(selectedRequestId);
       showToast('success', success);
     } catch (err) {
+      captureAppError(err, 'runAction', { success });
       showToast('error', err instanceof Error ? err.message : 'No pudimos completar la accion.');
     } finally {
       setBusy(false);
@@ -1654,6 +1824,7 @@ export function App() {
       showToast('error', 'Cambia de rol para abrir esa vista.');
       return;
     }
+    trackRoleNavigation(session?.role ?? 'anonymous', nextView);
     setView(nextView);
   }
 
@@ -1689,6 +1860,7 @@ export function App() {
       return (
         <ProviderPanel
           provider={provider}
+          verification={providerVerification}
           categories={categories}
           requests={requests}
           filters={filters}
@@ -1710,6 +1882,12 @@ export function App() {
                 lng: provider?.location.lng ?? -99.1333
               });
             }, 'Ubicacion actualizada.')
+          }
+          onSubmitVerification={(payload) =>
+            runAction(async () => {
+              const verification = await api.submitProviderVerification(payload);
+              setProviderVerification(verification);
+            }, 'Expediente KYC enviado para revision.')
           }
           onAccept={(request) =>
             runAction(async () => {
@@ -1750,6 +1928,8 @@ export function App() {
           fraudSignals={fraudSignals}
           payments={payments}
           supportDocuments={supportDocuments}
+          providerVerifications={providerVerifications}
+          operationalAlerts={operationalAlerts}
           categories={categories}
           loading={roleLoading}
           busy={busy}
@@ -1762,6 +1942,14 @@ export function App() {
             runAction(async () => {
               await api.resolveDispute(request.id, resolution);
             }, 'Disputa resuelta.')
+          }
+          onReviewVerification={(providerId, status, reason) =>
+            runAction(async () => {
+              const reviewed = await api.reviewProviderVerification(providerId, status, reason);
+              setProviderVerifications((current) => current.map((item) => (item.id === reviewed.id ? reviewed : item)));
+              const refreshedProviders = await api.providers();
+              setProviders(refreshedProviders);
+            }, status === 'aprobado' ? 'Proveedor verificado.' : 'Verificacion rechazada.')
           }
           onReconcile={() =>
             runAction(async () => {
@@ -1787,8 +1975,11 @@ export function App() {
     handleCreateRequest,
     loadRoleData,
     metrics,
+    operationalAlerts,
     payments,
     provider,
+    providerVerification,
+    providerVerifications,
     providers,
     requests,
     roleLoading,

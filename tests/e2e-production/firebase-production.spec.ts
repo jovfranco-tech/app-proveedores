@@ -60,9 +60,43 @@ test('cliente crea solicitud y proveedor la puede cotizar', async ({ page }) => 
   await logout(page);
 
   await login(page, 'proveedor');
+  await page.getByLabel(/Busqueda/i).fill(title);
+  await page.getByRole('button', { name: /Aplicar filtros/i }).click();
   await expect(page.getByText(title)).toBeVisible();
   const requestCard = page.locator('.request-card').filter({ hasText: title });
   await requestCard.getByRole('button', { name: /Cotizar/i }).click();
   await expect(page.getByRole('heading', { name: title })).toBeVisible();
   await expect(page.locator('.pill').filter({ hasText: 'Cotizada' })).toBeVisible();
+});
+
+test('proveedor envia KYC con documentos y admin lo aprueba', async ({ page }) => {
+  const suffix = Date.now();
+  const legalName = `Grupo ServiHogar KYC ${suffix}`;
+
+  await login(page, 'proveedor');
+  await expect(page.getByRole('heading', { name: 'Solicitudes abiertas', exact: true })).toBeVisible();
+  await page.getByLabel(/Nombre legal/i).fill(legalName);
+  await page.getByRole('textbox', { name: 'RFC' }).fill('ABC010203XYZ');
+  await page.getByLabel(/Domicilio fiscal/i).fill('Centro Historico, CDMX');
+  await page.getByLabel(/Notas para revision/i).fill('Expediente KYC generado por prueba E2E de produccion.');
+  await page.getByLabel(/Identificacion oficial/i).setInputFiles({
+    name: 'identificacion-e2e.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.from('%PDF-1.4\\n% E2E identificacion\\n')
+  });
+  await page.getByLabel(/RFC o comprobante/i).setInputFiles({
+    name: 'rfc-e2e.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.from('%PDF-1.4\\n% E2E rfc\\n')
+  });
+  await page.getByRole('button', { name: /Enviar KYC/i }).click();
+  await expect(page.locator('.kyc-form')).toContainText('pendiente');
+  await logout(page);
+
+  await login(page, 'admin');
+  await expect(page.getByRole('heading', { name: /Revision KYC/i })).toBeVisible();
+  const kycRow = page.locator('section[aria-labelledby="kyc-review-title"] .provider-row').first();
+  await expect(kycRow).toBeVisible();
+  await kycRow.getByRole('button', { name: /Aprobar/i }).click();
+  await expect(page.getByText(/Proveedor verificado/i)).toBeVisible();
 });

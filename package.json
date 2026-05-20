@@ -36,6 +36,7 @@
     "@opentelemetry/exporter-metrics-otlp-http": "^0.218.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.218.0",
     "@opentelemetry/sdk-node": "^0.218.0",
+    "@sentry/react": "^10.53.1",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.9.0",
     "cloudinary": "^2.10.0",

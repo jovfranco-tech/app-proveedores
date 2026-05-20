@@ -10,15 +10,17 @@ import {
   sessions as seedSessions
 } from '../server/seed';
 import { isFirebaseConfigured } from './firebase/client';
-import { CreateRequestPayload, RequestFilters, SignupPayload, firebaseRepository } from './firebase/repository';
+import { CreateRequestPayload, ProviderVerificationPayload, RequestFilters, SignupPayload, firebaseRepository } from './firebase/repository';
 import type {
   AuditLog,
   ChatMessage,
   EscrowStatus,
   FraudSignal,
+  OperationalAlert,
   PaymentCheckout,
   PaymentRecord,
   Provider,
+  ProviderVerificationRequest,
   RequestStatus,
   Role,
   RuntimeConfig,
@@ -27,7 +29,7 @@ import type {
   UserSession
 } from './types';
 
-export type { CreateRequestPayload, RequestFilters, SignupPayload };
+export type { CreateRequestPayload, ProviderVerificationPayload, RequestFilters, SignupPayload };
 
 const nowIso = () => new Date().toISOString();
 
@@ -38,6 +40,7 @@ const demoProviders = seedProviders.map((provider) => ({ ...provider }));
 const demoDocuments: SupportDocument[] = [];
 const demoPayments: PaymentRecord[] = [];
 const demoAuditLogs: AuditLog[] = [];
+const demoVerifications: ProviderVerificationRequest[] = [];
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -364,6 +367,40 @@ const demoApi = {
     });
   },
 
+  async providerVerification(providerId: string) {
+    assertDemoSession();
+    return clone(demoVerifications.find((item) => item.providerId === providerId) ?? null);
+  },
+
+  async submitProviderVerification(payload: ProviderVerificationPayload) {
+    const session = assertDemoSession();
+    const verification: ProviderVerificationRequest = {
+      id: payload.providerId,
+      providerId: payload.providerId,
+      ownerUid: session.id,
+      legalName: payload.legalName,
+      taxId: payload.taxId,
+      address: payload.address,
+      notes: payload.notes,
+      status: 'pendiente',
+      documents: payload.files.map((item) => ({
+        id: `kyc_${nanoid(8)}`,
+        docType: item.docType,
+        fileName: item.file.name,
+        fileUrl: URL.createObjectURL(item.file),
+        objectKey: `demo/${payload.providerId}/${item.file.name}`,
+        uploadedAt: nowIso()
+      })),
+      createdAt: nowIso(),
+      updatedAt: nowIso()
+    };
+    const existingIndex = demoVerifications.findIndex((item) => item.providerId === payload.providerId);
+    if (existingIndex >= 0) demoVerifications.splice(existingIndex, 1, verification);
+    else demoVerifications.unshift(verification);
+    pushAudit('providerVerification.submitted', 'provider', payload.providerId);
+    return clone(verification);
+  },
+
   async metrics() {
     const activeRequests = demoRequests.filter((request) => request.status !== 'cerrada').length;
     const escrowBalance = demoRequests.reduce((total, request) => total + (request.escrow.status === 'retenido' ? request.escrow.amount : 0), 0);
@@ -426,6 +463,53 @@ const demoApi = {
   async supportDocuments() {
     assertDemoSession();
     return clone(demoDocuments);
+  },
+
+  async providerVerifications() {
+    assertDemoSession();
+    return clone(demoVerifications);
+  },
+
+  async reviewProviderVerification(providerId: string, status: 'aprobado' | 'rechazado', reason?: string) {
+    assertDemoSession();
+    const verification = demoVerifications.find((item) => item.providerId === providerId);
+    if (!verification) throw new Error('No encontramos la verificacion.');
+    verification.status = status;
+    verification.rejectionReason = reason;
+    verification.reviewedAt = nowIso();
+    verification.updatedAt = nowIso();
+    ensureProvider(providerId).verified = status === 'aprobado';
+    pushAudit('providerVerification.reviewed', 'provider', providerId, { status });
+    return clone(verification);
+  },
+
+  async operationalAlerts() {
+    const alerts: OperationalAlert[] = [];
+    const pendingKyc = demoVerifications.filter((item) => item.status === 'pendiente');
+    const disputes = demoRequests.filter((request) => request.status === 'disputa');
+    if (pendingKyc.length) {
+      alerts.push({
+        id: 'demo_kyc_pending',
+        severity: 'warning',
+        title: 'KYC pendiente',
+        message: `${pendingKyc.length} proveedor(es) esperan revision.`,
+        source: 'kyc',
+        status: 'open',
+        createdAt: nowIso()
+      });
+    }
+    if (disputes.length) {
+      alerts.push({
+        id: 'demo_disputes_open',
+        severity: 'warning',
+        title: 'Disputas abiertas',
+        message: `${disputes.length} caso(s) requieren soporte.`,
+        source: 'disputes',
+        status: 'open',
+        createdAt: nowIso()
+      });
+    }
+    return clone(alerts);
   },
 
   async heatmap() {

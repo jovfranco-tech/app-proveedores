@@ -15,11 +15,11 @@ service firebase.storage {
     }
 
     function role() {
-      return hasProfile() ? profile().data.role : null;
+      return request.auth.token.role != null ? request.auth.token.role : hasProfile() ? profile().data.role : null;
     }
 
     function providerId() {
-      return hasProfile() ? profile().data.providerId : null;
+      return request.auth.token.providerId != null ? request.auth.token.providerId : hasProfile() ? profile().data.providerId : null;
     }
 
     function isAdmin() {
@@ -53,6 +53,17 @@ service firebase.storage {
           'image/webp',
           'application/pdf'
         ];
+
+      allow update, delete: if isAdmin();
+    }
+
+    match /providerKyc/{providerIdDoc}/{documentId}/{fileName} {
+      allow read: if isAdmin() || (signedIn() && providerIdDoc == providerId());
+
+      allow create: if signedIn()
+        && providerIdDoc == providerId()
+        && request.resource.size < 10 * 1024 * 1024
+        && (request.resource.contentType.matches('image/.*') || request.resource.contentType == 'application/pdf');
 
       allow update, delete: if isAdmin();
     }

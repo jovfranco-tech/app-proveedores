@@ -120,6 +120,13 @@ a {
   min-height: 100vh;
 }
 
+.app-fallback {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: var(--space-6);
+}
+
 .app-header {
   position: sticky;
   z-index: 50;
@@ -1001,6 +1008,67 @@ textarea {
 .provider-row small {
   margin: 0;
   color: var(--color-muted);
+}
+
+.kyc-form,
+.alerts-panel {
+  margin-top: var(--space-5);
+}
+
+.kyc-form {
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-line);
+}
+
+.kyc-form label,
+.kyc-form .panel-heading {
+  min-width: 0;
+}
+
+.error-text {
+  margin: 0;
+  color: var(--color-danger);
+  font-weight: 780;
+}
+
+.alert-row {
+  border-left: 4px solid var(--color-line);
+}
+
+.alert-row.info {
+  border-left-color: var(--color-blue);
+}
+
+.alert-row.warning {
+  border-left-color: var(--color-accent);
+}
+
+.alert-row.critical {
+  border-left-color: var(--color-danger);
+}
+
+.row-actions,
+.document-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.document-links {
+  margin-top: var(--space-2);
+}
+
+.document-links a {
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  color: var(--color-primary-dark);
+  background: var(--color-soft);
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 
 .heat-map,
