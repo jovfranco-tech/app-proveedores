@@ -14,7 +14,7 @@ Usuario
   -> Stripe / Mercado Pago desde Functions, nunca desde el frontend
 ```
 
-Produccion actual: https://app-proveedores.vercel.app
+Produccion actual: https://app-proveedores-3.vercel.app
 
 ## Servicios Firebase
 
@@ -24,6 +24,7 @@ Produccion actual: https://app-proveedores.vercel.app
 - Security Rules: reglas deny-by-default para Firestore y Storage.
 - Cloud Functions: endpoints preparados para custom claims, escrow, pagos/webhooks y auditoria.
 - Firebase Emulator Suite: Auth, Firestore, Storage, Functions y Emulator UI.
+- Mapa: Mapbox cuando `VITE_MAPBOX_TOKEN` existe; OpenStreetMap como fallback publico sin token.
 
 ## Desarrollo Local
 
@@ -148,6 +149,12 @@ El frontend conserva el concepto de escrow, pero en modo Firebase no marca pagos
 
 Los webhooks incluidos son una base de produccion: reciben eventos, escriben auditoria y dejan el punto claro para validar firmas y actualizar `payments`/`serviceRequests` con logica especifica de Stripe o Mercado Pago.
 
+Webhook Stripe configurado para Firebase Functions:
+
+- `https://us-central1-chambeale-708cb.cloudfunctions.net/stripeWebhook`
+- Eventos: `checkout.session.completed`, `payment_intent.succeeded`
+- El signing secret debe vivir en `STRIPE_WEBHOOK_SECRET` dentro de Firebase Secret Manager.
+
 ## Migracion Desde SQLite/Postgres
 
 El modelo relacional anterior se mapea asi:
@@ -172,6 +179,14 @@ npm run build
 cd functions && npm run build
 ```
 
+Para validar la app ya desplegada contra Firebase/Vercel:
+
+```bash
+npm run test:e2e:prod
+```
+
+Ese flujo cubre catalogo/mapa publico, login de cliente/proveedor/admin y una solicitud real creada por cliente y cotizada por proveedor.
+
 Para validar reglas con emulador:
 
 ```bash
@@ -192,5 +207,7 @@ Smoke test posterior a deploy:
 ## Limitaciones Conocidas
 
 - Los webhooks de Stripe/Mercado Pago ya validan firma y actualizan escrow cuando el proveedor confirma un pago aprobado. Falta probarlos con eventos reales de cada cuenta antes de abrir trafico productivo.
+- Falta rotar la secret key de Stripe desde el Dashboard/Workbench de Stripe y actualizar `STRIPE_SECRET_KEY` en Firebase Secret Manager.
+- `app-proveedores.vercel.app` sigue ocupado fuera del scope actual de Vercel; produccion usa `app-proveedores-3.vercel.app` hasta liberar alias o configurar dominio propio.
 - La suite `test:rules` usa `@firebase/rules-unit-testing`, pero necesita Java/Firebase Emulator Suite instalado para correr localmente o en CI.
 - El backend Express/SQLite sigue en el repo como referencia y compatibilidad local, pero el frontend ya usa Firebase cuando `VITE_FIREBASE_*` esta configurado.

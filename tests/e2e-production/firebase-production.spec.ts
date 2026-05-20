@@ -8,6 +8,7 @@ const demoUsers = {
 
 async function login(page: Page, role: keyof typeof demoUsers) {
   await page.goto('/');
+  await page.getByLabel(/Selecciona rol/i).getByRole('button', { name: new RegExp(role, 'i') }).click();
   await page.locator('input[type="email"]').fill(demoUsers[role].email);
   await page.locator('input[type="password"]').fill(demoUsers[role].password);
   await page.locator('button[type="submit"]').click();
@@ -22,7 +23,7 @@ test('catalogo y mapa publico cargan desde Firebase sin sesion', async ({ page }
   await page.goto('/');
 
   await expect(page.getByRole('heading', { name: 'App Proveedores' })).toBeVisible();
-  await page.getByRole('button', { name: /Catalogo/i }).click();
+  await page.getByRole('button', { name: 'Catalogo', exact: true }).click();
   await expect(page.locator('.category-card')).toHaveCount(8);
 
   await page.getByRole('button', { name: /Mapa/i }).click();
@@ -63,5 +64,5 @@ test('cliente crea solicitud y proveedor la puede cotizar', async ({ page }) => 
   const requestCard = page.locator('.request-card').filter({ hasText: title });
   await requestCard.getByRole('button', { name: /Cotizar/i }).click();
   await expect(page.getByRole('heading', { name: title })).toBeVisible();
-  await expect(page.getByText(/Cotizada|cotizacion/i)).toBeVisible();
+  await expect(page.locator('.pill').filter({ hasText: 'Cotizada' })).toBeVisible();
 });
