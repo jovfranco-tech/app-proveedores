@@ -61,6 +61,17 @@ function json(res: Parameters<Parameters<typeof onRequest>[0]>[1], status: numbe
   res.status(status).json(payload);
 }
 
+function cors(req: Request, res: Parameters<Parameters<typeof onRequest>[0]>[1]) {
+  res.set('Access-Control-Allow-Origin', req.get('origin') ?? appOrigin.value());
+  res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return true;
+  }
+  return false;
+}
+
 function rawBody(req: Request) {
   const body = (req as Request & { rawBody?: Buffer }).rawBody;
   if (!body) throw new Error('Raw body no disponible para validar firma.');
@@ -447,5 +458,112 @@ export const mercadoPagoWebhook = onRequest({ secrets: [mercadoPagoAccessToken, 
   } catch (error) {
     await writeAudit({ action: 'mercadopago.webhook.rejected', entityType: 'payment', metadata: { reason: error instanceof Error ? error.message : 'unknown' } });
     return json(res, 400, { message: error instanceof Error ? error.message : 'Webhook Mercado Pago invalido.' });
+  }
+});
+
+export const api = onRequest({ secrets: [stripeSecretKey, mercadoPagoAccessToken, mercadoPagoWebhookSecret, stripeWebhookSecret] }, async (req, res) => {
+  if (cors(req, res)) return;
+
+  try {
+    const actor = await requireUser(req);
+    const db = getFirestore();
+    const path = req.path.replace(/\/$/, '');
+
+    if (req.method === 'POST' && path === '/payments/escrow') {
+      const { requestId, action, amount } = req.body as { requestId?: string; action?: EscrowAction; amount?: number };
+      if (!requestId || !action || !['pay', 'release', 'refund'].includes(action)) return json(res, 400, { message: 'Payload invalido.' });
+
+      const requestRef = db.collection('serviceRequests').doc(requestId);
+      const requestSnap = await requestRef.get();
+      if (!requestSnap.exists) return json(res, 404, { message: 'Solicitud no encontrada.' });
+      const serviceRequest = requestSnap.data() as ServiceRequestData;
+      const isAdmin = actor.admin === true || actor.role === 'admin';
+      if (action === 'pay' && serviceRequest.clientId !== actor.uid && !isAdmin) return json(res, 403, { message: 'Solo el cliente puede iniciar el pago.' });
+      if (['release', 'refund'].includes(action) && serviceRequest.clientId !== actor.uid && !isAdmin) return json(res, 403, { message: 'Solo cliente/admin puede mover escrow.' });
+
+      const provider = paymentProvider.value();
+      let payment: PaymentRecord;
+      if (action === 'pay' && provider === 'stripe') {
+        payment = await createStripeCheckout(actor.uid, requestId, serviceRequest, amount);
+      } else if (action === 'pay' && provider === 'mercadopago') {
+        payment = await createMercadoPagoCheckout(actor.uid, requestId, serviceRequest, amount);
+      } else {
+        payment = await createLocalEscrowPayment(actor.uid, requestId, serviceRequest, action, amount);
+      }
+      await writeAudit({ actorUserId: actor.uid, actorRole: (actor.role as Role) ?? undefined, action: `escrow.${action}`, entityType: 'serviceRequest', entityId: requestId, metadata: { paymentId: payment.id, provider: payment.provider } });
+      return json(res, 200, { data: { payment } });
+    }
+
+    if (req.method === 'POST' && path === '/payments/subscription') {
+      const { providerId, plan, price } = req.body as { providerId?: string; plan?: string; price?: number };
+      if (!providerId || !plan || !price) return json(res, 400, { message: 'Payload invalido.' });
+      const paymentRef = db.collection('payments').doc();
+      const providerRef = db.collection('providers').doc(providerId);
+      const payment: PaymentRecord = {
+        id: paymentRef.id,
+        kind: 'subscription',
+        providerId,
+        userId: actor.uid,
+        provider: 'local',
+        amount: price,
+        currency: 'MXN',
+        status: 'paid',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      await db.runTransaction(async (transaction) => {
+        transaction.set(paymentRef, payment);
+        transaction.set(providerRef, {
+          subscription: {
+            plan,
+            status: 'activa',
+            renewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+            price
+          },
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      });
+      const providerSnap = await providerRef.get();
+      await writeAudit({ actorUserId: actor.uid, actorRole: (actor.role as Role) ?? undefined, action: 'subscription.paid', entityType: 'provider', entityId: providerId, metadata: { paymentId: payment.id } });
+      return json(res, 200, { data: { payment, provider: { id: providerSnap.id, ...providerSnap.data() } } });
+    }
+
+    if (actor.admin !== true && actor.role !== 'admin') return json(res, 403, { message: 'Admin requerido.' });
+
+    if (req.method === 'POST' && path === '/admin/providers/verify') {
+      const { providerId, verified } = req.body as { providerId?: string; verified?: boolean };
+      if (!providerId || typeof verified !== 'boolean') return json(res, 400, { message: 'Payload invalido.' });
+      const providerRef = db.collection('providers').doc(providerId);
+      await providerRef.set({ verified, updatedAt: new Date().toISOString() }, { merge: true });
+      const providerSnap = await providerRef.get();
+      await writeAudit({ actorUserId: actor.uid, actorRole: 'admin', action: 'provider.verified.updated', entityType: 'provider', entityId: providerId, metadata: { verified } });
+      return json(res, 200, { data: { id: providerSnap.id, ...providerSnap.data() } });
+    }
+
+    if (req.method === 'POST' && path === '/admin/disputes/resolve') {
+      const { requestId, resolution } = req.body as { requestId?: string; resolution?: 'release' | 'refund' };
+      if (!requestId || !resolution) return json(res, 400, { message: 'Payload invalido.' });
+      const requestRef = db.collection('serviceRequests').doc(requestId);
+      await requestRef.set({
+        status: resolution === 'release' ? 'cerrada' : 'reembolso',
+        dispute: { status: 'resuelta', resolution },
+        escrow: { status: resolution === 'release' ? 'liberado' : 'reembolsado' },
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      const requestSnap = await requestRef.get();
+      await writeAudit({ actorUserId: actor.uid, actorRole: 'admin', action: 'dispute.resolved', entityType: 'serviceRequest', entityId: requestId, metadata: { resolution } });
+      return json(res, 200, { data: { id: requestSnap.id, ...requestSnap.data() } });
+    }
+
+    if (req.method === 'POST' && path === '/admin/payments/reconcile') {
+      const snapshot = await db.collection('payments').orderBy('createdAt', 'desc').limit(50).get();
+      const payments = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+      await writeAudit({ actorUserId: actor.uid, actorRole: 'admin', action: 'payments.reconciled', entityType: 'payment' });
+      return json(res, 200, { data: payments });
+    }
+
+    return json(res, 404, { message: 'Ruta no encontrada.' });
+  } catch (error) {
+    return json(res, 400, { message: error instanceof Error ? error.message : 'No pudimos completar la operacion.' });
   }
 });
