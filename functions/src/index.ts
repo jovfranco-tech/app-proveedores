@@ -57,6 +57,19 @@ async function requireUser(req: Request) {
   return getAuth().verifyIdToken(token);
 }
 
+async function getActorRole(uid: string, tokenRole?: unknown): Promise<Role | undefined> {
+  if (tokenRole === 'cliente' || tokenRole === 'proveedor' || tokenRole === 'admin') return tokenRole;
+
+  const profile = await getFirestore().collection('users').doc(uid).get();
+  const role = profile.get('role');
+  return role === 'cliente' || role === 'proveedor' || role === 'admin' ? role : undefined;
+}
+
+async function isAdminActor(uid: string, tokenAdmin?: unknown, tokenRole?: unknown) {
+  if (tokenAdmin === true || tokenRole === 'admin') return true;
+  return (await getActorRole(uid, tokenRole)) === 'admin';
+}
+
 function json(res: Parameters<Parameters<typeof onRequest>[0]>[1], status: number, payload: unknown) {
   res.status(status).json(payload);
 }
@@ -353,7 +366,7 @@ async function fetchMercadoPagoPayment(paymentId: string) {
 export const setUserRole = onRequest(async (req, res) => {
   try {
     const actor = await requireUser(req);
-    if (actor.admin !== true && actor.role !== 'admin') return json(res, 403, { message: 'Admin requerido.' });
+    if (!(await isAdminActor(actor.uid, actor.admin, actor.role))) return json(res, 403, { message: 'Admin requerido.' });
 
     const { uid, role, providerId } = req.body as { uid?: string; role?: Role; providerId?: string };
     if (!uid || !role || !['cliente', 'proveedor', 'admin'].includes(role)) return json(res, 400, { message: 'Payload invalido.' });
@@ -371,6 +384,7 @@ export const setUserRole = onRequest(async (req, res) => {
 export const escrowPayment = onRequest({ secrets: [stripeSecretKey, mercadoPagoAccessToken] }, async (req, res) => {
   try {
     const actor = await requireUser(req);
+    const actorRole = await getActorRole(actor.uid, actor.role);
     const { requestId, action, amount } = req.body as { requestId?: string; action?: EscrowAction; amount?: number };
     if (!requestId || !action || !['pay', 'release', 'refund'].includes(action)) return json(res, 400, { message: 'Payload invalido.' });
 
@@ -380,7 +394,7 @@ export const escrowPayment = onRequest({ secrets: [stripeSecretKey, mercadoPagoA
     if (!requestSnap.exists) return json(res, 404, { message: 'Solicitud no encontrada.' });
     const serviceRequest = requestSnap.data() as ServiceRequestData;
 
-    const isAdmin = actor.admin === true || actor.role === 'admin';
+    const isAdmin = actor.admin === true || actorRole === 'admin';
     if (action === 'pay' && serviceRequest.clientId !== actor.uid && !isAdmin) return json(res, 403, { message: 'Solo el cliente puede iniciar el pago.' });
     if (['release', 'refund'].includes(action) && serviceRequest.clientId !== actor.uid && !isAdmin) return json(res, 403, { message: 'Solo cliente/admin puede mover escrow.' });
 
@@ -394,7 +408,7 @@ export const escrowPayment = onRequest({ secrets: [stripeSecretKey, mercadoPagoA
       payment = await createLocalEscrowPayment(actor.uid, requestId, serviceRequest, action, amount);
     }
 
-    await writeAudit({ actorUserId: actor.uid, actorRole: (actor.role as Role) ?? undefined, action: `escrow.${action}`, entityType: 'serviceRequest', entityId: requestId, metadata: { paymentId: payment.id, provider: payment.provider } });
+    await writeAudit({ actorUserId: actor.uid, actorRole, action: `escrow.${action}`, entityType: 'serviceRequest', entityId: requestId, metadata: { paymentId: payment.id, provider: payment.provider } });
     return json(res, 200, { data: { payment } });
   } catch (error) {
     return json(res, 400, { message: error instanceof Error ? error.message : 'No pudimos procesar escrow.' });
@@ -466,6 +480,7 @@ export const api = onRequest({ secrets: [stripeSecretKey, mercadoPagoAccessToken
 
   try {
     const actor = await requireUser(req);
+    const actorRole = await getActorRole(actor.uid, actor.role);
     const db = getFirestore();
     const path = req.path.replace(/\/$/, '');
 
@@ -477,7 +492,7 @@ export const api = onRequest({ secrets: [stripeSecretKey, mercadoPagoAccessToken
       const requestSnap = await requestRef.get();
       if (!requestSnap.exists) return json(res, 404, { message: 'Solicitud no encontrada.' });
       const serviceRequest = requestSnap.data() as ServiceRequestData;
-      const isAdmin = actor.admin === true || actor.role === 'admin';
+      const isAdmin = actor.admin === true || actorRole === 'admin';
       if (action === 'pay' && serviceRequest.clientId !== actor.uid && !isAdmin) return json(res, 403, { message: 'Solo el cliente puede iniciar el pago.' });
       if (['release', 'refund'].includes(action) && serviceRequest.clientId !== actor.uid && !isAdmin) return json(res, 403, { message: 'Solo cliente/admin puede mover escrow.' });
 
@@ -490,7 +505,7 @@ export const api = onRequest({ secrets: [stripeSecretKey, mercadoPagoAccessToken
       } else {
         payment = await createLocalEscrowPayment(actor.uid, requestId, serviceRequest, action, amount);
       }
-      await writeAudit({ actorUserId: actor.uid, actorRole: (actor.role as Role) ?? undefined, action: `escrow.${action}`, entityType: 'serviceRequest', entityId: requestId, metadata: { paymentId: payment.id, provider: payment.provider } });
+      await writeAudit({ actorUserId: actor.uid, actorRole, action: `escrow.${action}`, entityType: 'serviceRequest', entityId: requestId, metadata: { paymentId: payment.id, provider: payment.provider } });
       return json(res, 200, { data: { payment } });
     }
 
@@ -524,11 +539,11 @@ export const api = onRequest({ secrets: [stripeSecretKey, mercadoPagoAccessToken
         }, { merge: true });
       });
       const providerSnap = await providerRef.get();
-      await writeAudit({ actorUserId: actor.uid, actorRole: (actor.role as Role) ?? undefined, action: 'subscription.paid', entityType: 'provider', entityId: providerId, metadata: { paymentId: payment.id } });
+      await writeAudit({ actorUserId: actor.uid, actorRole, action: 'subscription.paid', entityType: 'provider', entityId: providerId, metadata: { paymentId: payment.id } });
       return json(res, 200, { data: { payment, provider: { id: providerSnap.id, ...providerSnap.data() } } });
     }
 
-    if (actor.admin !== true && actor.role !== 'admin') return json(res, 403, { message: 'Admin requerido.' });
+    if (!(await isAdminActor(actor.uid, actor.admin, actorRole))) return json(res, 403, { message: 'Admin requerido.' });
 
     if (req.method === 'POST' && path === '/admin/providers/verify') {
       const { providerId, verified } = req.body as { providerId?: string; verified?: boolean };
