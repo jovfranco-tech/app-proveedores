@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">AppProveedores</title>
+  <desc id="desc">Icono de AppProveedores con una A y punto de ubicacion.</desc>
+  <defs>
+    <linearGradient id="bg" x1="72" y1="48" x2="440" y2="464" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#192849"/>
+      <stop offset="0.55" stop-color="#22406f"/>
+      <stop offset="1" stop-color="#f5a623"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#0b1224" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#f7f4ed"/>
+  <path d="M96 237c0-85 69-154 154-154s154 69 154 154c0 115-154 209-154 209S96 352 96 237Z" fill="url(#bg)" filter="url(#shadow)"/>
+  <circle cx="250" cy="237" r="96" fill="#ffffff" opacity="0.96"/>
+  <path d="M204 300h-36l66-142h34l66 142h-38l-13-31h-66l-13 31Zm24-58h44l-22-53-22 53Z" fill="#192849"/>
+  <path d="M318 180h54v24h-54v-24Zm0 40h54v24h-54v-24Zm0 40h38v24h-38v-24Z" fill="#f5a623"/>
+</svg>

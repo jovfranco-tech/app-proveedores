@@ -1,0 +1,4 @@
+app.example.com {
+  encode gzip zstd
+  reverse_proxy app:5174
+}

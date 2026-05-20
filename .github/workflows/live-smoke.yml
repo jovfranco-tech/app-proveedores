@@ -1,0 +1,46 @@
+name: Live Smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
+
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Validate production integrations
+        run: npm run prod:doctor:live
+        env:
+          APP_ORIGIN: ${{ secrets.APP_ORIGIN }}
+          PUBLIC_WEBHOOK_BASE_URL: ${{ secrets.PUBLIC_WEBHOOK_BASE_URL }}
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+          POSTGRES_SSL: "true"
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          REFRESH_SECRET: ${{ secrets.REFRESH_SECRET }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          MERCADOPAGO_ACCESS_TOKEN: ${{ secrets.MERCADOPAGO_ACCESS_TOKEN }}
+          VITE_MAPBOX_TOKEN: ${{ secrets.VITE_MAPBOX_TOKEN }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          OAUTH_REDIRECT_BASE_URL: ${{ secrets.OAUTH_REDIRECT_BASE_URL }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          CLOUDINARY_URL: ${{ secrets.CLOUDINARY_URL }}
+          OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
+          STAGING_URL: ${{ secrets.STAGING_URL }}
+          CUSTOM_DOMAIN: ${{ secrets.CUSTOM_DOMAIN }}
+      - name: Runtime Postgres smoke
+        run: npm run db:postgres:smoke
+        env:
+          DB_DRIVER: postgres
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+          POSTGRES_SSL: "true"

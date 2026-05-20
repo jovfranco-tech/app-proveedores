@@ -1,0 +1,37 @@
+{
+  "name": "App Proveedores 3",
+  "short_name": "Proveedores 3",
+  "description": "Marketplace para solicitar, aceptar y administrar servicios locales en Mexico.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f7f5",
+  "theme_color": "#0f766e",
+  "orientation": "portrait-primary",
+  "lang": "es-MX",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Catalogo de servicios",
+      "short_name": "Catalogo",
+      "description": "Explorar categorias y servicios disponibles",
+      "url": "/",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Mapa de demanda",
+      "short_name": "Mapa",
+      "description": "Ver zonas calientes de solicitudes",
+      "url": "/",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}
