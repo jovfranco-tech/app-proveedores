@@ -528,16 +528,6 @@ export const firebaseRepository = {
   },
 
   async heatmap() {
-    const requests = await listCollection<ServiceRequest>('serviceRequests', [where('status', 'in', ['abierta', 'cotizada', 'aceptada']), limit(40)]);
-    return requests
-      .filter((request) => request.location)
-      .map<HeatPoint>((request) => ({
-        id: `hp_${request.id}`,
-        label: request.address,
-        lat: request.location?.lat ?? 19.4326,
-        lng: request.location?.lng ?? -99.1332,
-        intensity: Math.max(35, Math.min(95, Math.round(request.budget / 80))),
-        categoryId: request.categoryId
-      }));
+    return listCollection<HeatPoint>('runtimeConfig', [orderBy('label', 'asc'), limit(40)]);
   }
 };

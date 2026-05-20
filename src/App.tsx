@@ -124,7 +124,7 @@ function routeForRole(role: Role): View {
 }
 
 function isViewAllowed(session: UserSession | null, view: View) {
-  if (!session) return view === 'home' || view === 'catalogo';
+  if (!session) return view === 'home' || view === 'catalogo' || view === 'mapa';
   if (view === 'cliente') return session.role === 'cliente';
   if (view === 'proveedor') return session.role === 'proveedor';
   if (view === 'admin') return session.role === 'admin';
