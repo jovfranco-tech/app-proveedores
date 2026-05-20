@@ -114,9 +114,13 @@ firebase deploy --only functions
 8. Configura secrets de Functions para pagos:
 
 ```bash
+firebase functions:secrets:set STRIPE_SECRET_KEY
 firebase functions:secrets:set STRIPE_WEBHOOK_SECRET
+firebase functions:secrets:set MERCADOPAGO_ACCESS_TOKEN
 firebase functions:secrets:set MERCADOPAGO_WEBHOOK_SECRET
 ```
+
+En Functions v2, configura tambien los params `APP_ORIGIN` y `PAYMENT_PROVIDER` durante el deploy o con el archivo/env de tu entorno.
 
 9. Ejecuta `npm run firebase:seed` para demo users/categorias/solicitudes si necesitas datos iniciales.
 10. En Vercel, redeploy de frontend despues de configurar env vars.
@@ -165,7 +169,16 @@ Para migrar datos reales, exporta filas SQL a JSON, conserva ids estables cuando
 npm run lint
 npm test
 npm run build
+cd functions && npm run build
 ```
+
+Para validar reglas con emulador:
+
+```bash
+npm run test:rules
+```
+
+Ese comando requiere Java en el `PATH` porque Firestore Emulator corre sobre JVM.
 
 Smoke test posterior a deploy:
 
@@ -178,6 +191,6 @@ Smoke test posterior a deploy:
 
 ## Limitaciones Conocidas
 
-- Los webhooks de Stripe/Mercado Pago estan preparados como boundary seguro, pero la validacion criptografica y conciliacion final deben completarse con las credenciales reales del proveedor elegido.
-- Las pruebas de reglas incluidas son estaticas; para una suite completa usa `@firebase/rules-unit-testing` con emuladores en CI.
+- Los webhooks de Stripe/Mercado Pago ya validan firma y actualizan escrow cuando el proveedor confirma un pago aprobado. Falta probarlos con eventos reales de cada cuenta antes de abrir trafico productivo.
+- La suite `test:rules` usa `@firebase/rules-unit-testing`, pero necesita Java/Firebase Emulator Suite instalado para correr localmente o en CI.
 - El backend Express/SQLite sigue en el repo como referencia y compatibilidad local, pero el frontend ya usa Firebase cuando `VITE_FIREBASE_*` esta configurado.
