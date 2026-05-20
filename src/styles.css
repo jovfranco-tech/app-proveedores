@@ -1004,7 +1004,8 @@ textarea {
 }
 
 .heat-map,
-.mapbox-map {
+.mapbox-map,
+.osm-map {
   position: relative;
   min-height: 560px;
   overflow: hidden;
@@ -1020,6 +1021,30 @@ textarea {
 
 .mapbox-map {
   background: #dfe9e5;
+}
+
+.osm-map {
+  isolation: isolate;
+  background: #cfe4db;
+}
+
+.osm-map::after {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  content: "";
+  background:
+    radial-gradient(circle at 30% 28%, rgba(15, 118, 110, 0.18), transparent 34%),
+    linear-gradient(180deg, transparent, rgba(23, 33, 29, 0.08));
+}
+
+.osm-tile {
+  position: absolute;
+  z-index: 0;
+  width: calc(100% / 3);
+  height: calc(100% / 3);
+  object-fit: cover;
 }
 
 .mapbox-marker {
@@ -1055,6 +1080,56 @@ textarea {
   font-size: 0.8rem;
   font-weight: 850;
   transform: translate(-50%, -50%);
+}
+
+.osm-marker {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  min-width: var(--heat-size);
+  min-height: var(--heat-size);
+  place-items: center;
+  padding: 0.35rem;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--heat-color);
+  box-shadow:
+    0 0 0 10px color-mix(in srgb, var(--heat-color), transparent 78%),
+    var(--shadow-soft);
+  font-size: 0.82rem;
+  font-weight: 850;
+  transform: translate(-50%, -50%);
+}
+
+.osm-marker small {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 50%;
+  width: max-content;
+  max-width: 13rem;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid rgba(23, 33, 29, 0.1);
+  border-radius: 999px;
+  color: var(--color-ink);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: var(--shadow-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+  transform: translateX(-50%);
+}
+
+.map-attribution {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 3;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  color: var(--color-muted);
+  background: rgba(255, 255, 255, 0.88);
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .insight-list article {

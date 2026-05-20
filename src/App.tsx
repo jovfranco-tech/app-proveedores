@@ -28,7 +28,6 @@ import {
 } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ElementType, ReactNode } from 'react';
-import 'mapbox-gl/dist/mapbox-gl.css';
 import { api, CreateRequestPayload, RequestFilters, SignupPayload, usingFirebaseBackend } from './api';
 import { ServiceRequestForm } from './components/ServiceRequestForm';
 import type {
@@ -110,6 +109,14 @@ function formatDate(value: string) {
 
 function getCategory(categories: Category[], id: string) {
   return categories.find((category) => category.id === id);
+}
+
+function lonLatToTile(lng: number, lat: number, zoom: number) {
+  const scale = 2 ** zoom;
+  const x = ((lng + 180) / 360) * scale;
+  const latRad = (lat * Math.PI) / 180;
+  const y = ((1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2) * scale;
+  return { x, y };
 }
 
 function categoryPhotoStyle(category: Category): CSSProperties {
@@ -1230,6 +1237,7 @@ function MapboxDemandMap({ points, categories, token }: { points: HeatPoint[]; c
     let cancelled = false;
 
     async function mountMap() {
+      await import('mapbox-gl/dist/mapbox-gl.css');
       const mod = await import('mapbox-gl');
       if (cancelled || !mapRef.current) return;
       const mapboxgl = mod.default;
@@ -1273,6 +1281,65 @@ function MapboxDemandMap({ points, categories, token }: { points: HeatPoint[]; c
   return <div className="mapbox-map" ref={mapRef} role="img" aria-label="Mapa Mapbox con demanda geolocalizada" />;
 }
 
+function OpenStreetDemandMap({ points, categories }: { points: HeatPoint[]; categories: Category[] }) {
+  const zoom = 11;
+  const center = lonLatToTile(-99.1332, 19.4326, zoom);
+  const centerX = Math.floor(center.x);
+  const centerY = Math.floor(center.y);
+  const tileSpan = 3;
+  const tiles = [-1, 0, 1].flatMap((dy) =>
+    [-1, 0, 1].map((dx) => ({
+      key: `${centerX + dx}-${centerY + dy}`,
+      x: centerX + dx,
+      y: centerY + dy,
+      left: ((dx + 1) / tileSpan) * 100,
+      top: ((dy + 1) / tileSpan) * 100
+    }))
+  );
+
+  return (
+    <div className="osm-map" role="img" aria-label="Mapa OpenStreetMap con demanda geolocalizada">
+      {tiles.map((tile) => (
+        <img
+          alt=""
+          aria-hidden="true"
+          className="osm-tile"
+          key={tile.key}
+          loading="lazy"
+          src={`https://tile.openstreetmap.org/${zoom}/${tile.x}/${tile.y}.png`}
+          style={{ left: `${tile.left}%`, top: `${tile.top}%` }}
+        />
+      ))}
+      {points.map((point) => {
+        const pointTile = lonLatToTile(point.lng, point.lat, zoom);
+        const left = Math.max(6, Math.min(94, 50 + ((pointTile.x - center.x) / tileSpan) * 100));
+        const top = Math.max(6, Math.min(88, 50 + ((pointTile.y - center.y) / tileSpan) * 100));
+        const category = getCategory(categories, point.categoryId);
+        return (
+          <button
+            className="osm-marker"
+            key={point.id}
+            style={{
+              left: `${left}%`,
+              top: `${top}%`,
+              '--heat-color': category?.accent ?? '#0f766e',
+              '--heat-size': `${34 + point.intensity / 2}px`
+            } as CSSProperties}
+            type="button"
+            aria-label={`${point.label}, intensidad ${point.intensity}, categoria ${category?.name ?? 'servicio'}`}
+          >
+            <span>{point.intensity}</span>
+            <small>{point.label}</small>
+          </button>
+        );
+      })}
+      <a className="map-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
+        © OpenStreetMap
+      </a>
+    </div>
+  );
+}
+
 function MapInsights({ points, categories, mapboxToken }: { points: HeatPoint[]; categories: Category[]; mapboxToken?: string }) {
   return (
     <section className="content-section" aria-labelledby="map-title">
@@ -1286,30 +1353,7 @@ function MapInsights({ points, categories, mapboxToken }: { points: HeatPoint[];
         {mapboxToken ? (
           <MapboxDemandMap points={points} categories={categories} token={mapboxToken} />
         ) : (
-          <div className="heat-map" role="img" aria-label="Mapa visual de demanda por colonia">
-            <div className="map-grid" aria-hidden="true" />
-            {points.map((point) => {
-              const left = Math.max(8, Math.min(88, ((point.lng + 99.24) / 0.16) * 100));
-              const top = Math.max(8, Math.min(82, ((19.5 - point.lat) / 0.22) * 100));
-              const category = getCategory(categories, point.categoryId);
-              return (
-                <button
-                  className="heat-point"
-                  key={point.id}
-                  style={{
-                    left: `${left}%`,
-                    top: `${top}%`,
-                    '--heat-color': category?.accent ?? '#0f766e',
-                    '--heat-size': `${34 + point.intensity / 2}px`
-                  } as CSSProperties}
-                  type="button"
-                  aria-label={`${point.label}, intensidad ${point.intensity}, categoria ${category?.name ?? 'servicio'}`}
-                >
-                  <span>{point.intensity}</span>
-                </button>
-              );
-            })}
-          </div>
+          <OpenStreetDemandMap points={points} categories={categories} />
         )}
         <div className="workspace-panel">
           <h3>Insights operativos</h3>

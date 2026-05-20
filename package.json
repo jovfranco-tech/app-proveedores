@@ -24,6 +24,7 @@
     "test:rules": "PATH=/opt/homebrew/opt/openjdk/bin:$PATH firebase emulators:exec --only firestore \"vitest run --config vitest.rules.config.ts\"",
     "test:watch": "vitest --config vitest.config.ts",
     "test:e2e": "playwright test",
+    "test:e2e:prod": "playwright test --config playwright.production.config.ts",
     "test:load": "tsx server/scripts/load-smoke.ts",
     "lint": "eslint . --ext ts,tsx --max-warnings 0"
   },
