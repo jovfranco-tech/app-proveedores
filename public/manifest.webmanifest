@@ -1,6 +1,6 @@
 {
-  "name": "App Proveedores 3",
-  "short_name": "Proveedores 3",
+  "name": "App Proveedores",
+  "short_name": "Proveedores",
   "description": "Marketplace para solicitar, aceptar y administrar servicios locales en Mexico.",
   "start_url": "/",
   "scope": "/",

@@ -1,6 +1,6 @@
 /* global self, caches, URL, location, fetch */
 
-const CACHE_NAME = 'app-proveedores-3-v1';
+const CACHE_NAME = 'app-proveedores-v1';
 const OFFLINE_URL = '/offline.html';
 const STATIC_ASSETS = [
   '/',
