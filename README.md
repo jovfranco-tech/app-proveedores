@@ -1,32 +1,32 @@
 # ConectaPro
 
-Marketplace web para conectar clientes con proveedores locales verificados en Mexico. La app conserva el valor del producto original: solicitudes de servicio, panel de proveedor, panel admin, chat, escrow/pagos, disputas, auditoria, antifraude, PWA/offline y una experiencia demo local.
+Marketplace web para conectar clientes con proveedores locales verificados en México. La app conserva el valor del producto original: solicitudes de servicio, panel de proveedor, panel admin, chat, escrow/pagos, disputas, auditoría, antifraude, PWA/offline y una experiencia demo local.
 
-La ruta de produccion ahora es Firebase-backed:
+La ruta de producción ahora es Firebase-backed:
 
 ```text
 Usuario
   -> Vercel / React + Vite
-  -> Firebase Auth para sesion y registro
+  -> Firebase Auth para sesión y registro
   -> Cloud Firestore para datos operativos
   -> Firebase Storage para evidencias y documentos
-  -> Cloud Functions para pagos, webhooks, roles admin, auditoria sensible
+  -> Cloud Functions para pagos, webhooks, roles admin, auditoría sensible
   -> Stripe / Mercado Pago desde Functions, nunca desde el frontend
 ```
 
-Produccion actual: https://conectapro-mx.vercel.app
+Producción actual: https://conectapro-mx.vercel.app
 
 ## Servicios Firebase
 
-- Firebase Authentication: email/password, sesion persistida, perfiles por rol.
+- Firebase Authentication: email/password, sesión persistida, perfiles por rol.
 - Cloud Firestore: `users`, `providers`, `categories`, `serviceRequests`, `quotes`, `messages`, `notifications`, `payments`, `disputes`, `reviews`, `auditLogs`, `fraudSignals`, `supportDocuments`, `runtimeConfig` y `appSettings`.
 - Firebase Storage: evidencias/documentos bajo `supportDocuments/{requestId}/{documentId}/{fileName}`.
 - Security Rules: reglas deny-by-default para Firestore y Storage.
-- Cloud Functions: endpoints preparados para custom claims, escrow, pagos/webhooks y auditoria.
+- Cloud Functions: endpoints preparados para custom claims, escrow, pagos/webhooks y auditoría.
 - Firebase Emulator Suite: Auth, Firestore, Storage, Functions y Emulator UI.
-- Mapa: Mapbox cuando `VITE_MAPBOX_TOKEN` existe; OpenStreetMap como fallback publico sin token.
-- Observabilidad: Sentry opcional en frontend y Functions, breadcrumbs de sesion/rol, ErrorBoundary y alertas operativas en admin.
-- KYC: proveedores suben identificacion/RFC a Firebase Storage y admin aprueba/rechaza desde Functions.
+- Mapa: Mapbox cuando `VITE_MAPBOX_TOKEN` existe; OpenStreetMap como fallback público sin token.
+- Observabilidad: Sentry opcional en frontend y Functions, breadcrumbs de sesión/rol, ErrorBoundary y alertas operativas en admin.
+- KYC: proveedores suben identificación/RFC a Firebase Storage y admin aprueba/rechaza desde Functions.
 
 ## Desarrollo Local
 
@@ -71,7 +71,7 @@ Para emuladores, exporta también `FIRESTORE_EMULATOR_HOST`, `FIREBASE_AUTH_EMUL
 
 ## Variables De Entorno
 
-Frontend Vite/Vercel, solo config publica:
+Frontend Vite/Vercel, solo config pública:
 
 - `VITE_FIREBASE_API_KEY`
 - `VITE_FIREBASE_AUTH_DOMAIN`
@@ -129,17 +129,17 @@ firebase functions:secrets:set MERCADOPAGO_ACCESS_TOKEN
 firebase functions:secrets:set MERCADOPAGO_WEBHOOK_SECRET
 ```
 
-En Functions v2, configura tambien los params `APP_ORIGIN` y `PAYMENT_PROVIDER` durante el deploy o con el archivo/env de tu entorno.
+En Functions v2, configura también los params `APP_ORIGIN` y `PAYMENT_PROVIDER` durante el deploy o con el archivo/env de tu entorno.
 
-9. Ejecuta `npm run firebase:seed` para demo users/categorias/solicitudes si necesitas datos iniciales.
-10. En Vercel, redeploy de frontend despues de configurar env vars.
+9. Ejecuta `npm run firebase:seed` para demo users/categorías/solicitudes si necesitas datos iniciales.
+10. En Vercel, redeploy de frontend después de configurar env vars.
 
 ## Seguridad
 
 - Admin no es self-assignable desde el frontend.
 - Usuarios solo editan campos permitidos de su perfil.
 - Clientes crean y leen sus propias solicitudes.
-- Proveedores leen solicitudes abiertas y las asignadas/cotizadas segun la logica del marketplace.
+- Proveedores leen solicitudes abiertas y las asignadas/cotizadas según la lógica del marketplace.
 - Mensajes y documentos se autorizan por acceso a la solicitud.
 - KYC se autoriza por `providerId`/`ownerUid`; los documentos viven bajo `providerKyc/{providerId}` en Storage.
 - `payments` solo permite escritura admin/Functions.
@@ -156,7 +156,7 @@ El frontend conserva el concepto de escrow, pero en modo Firebase no marca pagos
 - `mercadoPagoWebhook`
 - `setUserRole`
 
-Los webhooks incluidos son una base de produccion: reciben eventos, escriben auditoria y dejan el punto claro para validar firmas y actualizar `payments`/`serviceRequests` con logica especifica de Stripe o Mercado Pago.
+Los webhooks incluidos son una base de producción: reciben eventos, escriben auditoría y dejan el punto claro para validar firmas y actualizar `payments`/`serviceRequests` con lógica específica de Stripe o Mercado Pago.
 
 Webhook Stripe configurado para Firebase Functions:
 
@@ -194,7 +194,7 @@ Para validar la app ya desplegada contra Firebase/Vercel:
 npm run test:e2e:prod
 ```
 
-Ese flujo cubre catalogo/mapa publico, login de cliente/proveedor/admin y una solicitud real creada por cliente y cotizada por proveedor.
+Ese flujo cubre catálogo/mapa público, login de cliente/proveedor/admin y una solicitud real creada por cliente y cotizada por proveedor.
 
 Para validar reglas con emulador:
 
@@ -217,8 +217,8 @@ Smoke test posterior a deploy:
 
 ## Limitaciones Conocidas
 
-- Los webhooks de Stripe/Mercado Pago ya validan firma y actualizan escrow cuando el proveedor confirma un pago aprobado. Falta probarlos con eventos reales de cada cuenta antes de abrir trafico productivo.
+- Los webhooks de Stripe/Mercado Pago ya validan firma y actualizan escrow cuando el proveedor confirma un pago aprobado. Falta probarlos con eventos reales de cada cuenta antes de abrir tráfico productivo.
 - Falta rotar la secret key de Stripe desde el Dashboard/Workbench de Stripe y actualizar `STRIPE_SECRET_KEY` en Firebase Secret Manager.
-- `conectapro.vercel.app` esta ocupado fuera del scope actual de Vercel; produccion usa `conectapro-mx.vercel.app` hasta liberar ese alias exacto o configurar dominio propio.
+- `conectapro.vercel.app` esta ocupado fuera del scope actual de Vercel; producción usa `conectapro-mx.vercel.app` hasta liberar ese alias exacto o configurar dominio propio.
 - La suite `test:rules` usa `@firebase/rules-unit-testing`, pero necesita Java/Firebase Emulator Suite instalado para correr localmente o en CI.
-- El backend Express/SQLite sigue en el repo como referencia y compatibilidad local, pero el frontend ya usa Firebase cuando `VITE_FIREBASE_*` esta configurado.
+- El backend Express/SQLite sigue en el repo como referencia y compatibilidad local, pero el frontend ya usa Firebase cuando `VITE_FIREBASE_*` está configurado.

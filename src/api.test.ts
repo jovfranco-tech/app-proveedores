@@ -37,7 +37,7 @@ describe('data backend facade', () => {
       title: 'Validar reglas de solicitud',
       categoryId: 'plomeria',
       address: 'Roma Norte',
-      city: 'Ciudad de Mexico',
+      city: 'Ciudad de México',
       dateTime: new Date().toISOString(),
       budget: 1500,
       description: 'Solicitud creada desde pruebas para validar la capa de datos.'

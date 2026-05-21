@@ -142,7 +142,7 @@ function isViewAllowed(session: UserSession | null, view: View) {
   return true;
 }
 
-function LoadingBlock({ label = 'Cargando informacion...' }: { label?: string }) {
+function LoadingBlock({ label = 'Cargando información...' }: { label?: string }) {
   return (
     <div className="state-block" role="status" aria-live="polite">
       <span className="spinner" aria-hidden="true" />
@@ -164,7 +164,7 @@ function EmptyState({ title, text }: { title: string; text: string }) {
 function ErrorBanner({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <div className="error-banner" role="alert">
-      <strong>No pudimos cargar esta seccion.</strong>
+      <strong>No pudimos cargar esta sección.</strong>
       <span>{message}</span>
       {onRetry ? (
         <button className="ghost-button" type="button" onClick={onRetry}>
@@ -194,7 +194,7 @@ function AppHeader({
 }) {
   const navItems: Array<{ view: View; label: string; icon: ElementType; roles?: Role[] }> = [
     { view: 'home', label: 'Inicio', icon: LayoutDashboard },
-    { view: 'catalogo', label: 'Catalogo', icon: Wrench },
+    { view: 'catalogo', label: 'Catálogo', icon: Wrench },
     { view: 'cliente', label: 'Cliente', icon: UsersRound, roles: ['cliente'] },
     { view: 'proveedor', label: 'Proveedor', icon: ShieldCheck, roles: ['proveedor'] },
     { view: 'admin', label: 'Admin', icon: Activity, roles: ['admin'] },
@@ -210,7 +210,7 @@ function AppHeader({
           <small>Servicios verificados</small>
         </span>
       </a>
-      <nav className="top-nav" aria-label="Navegacion principal">
+      <nav className="top-nav" aria-label="Navegación principal">
         {navItems
           .filter((item) => !item.roles || (session && item.roles.includes(session.role)))
           .map((item) => {
@@ -231,9 +231,9 @@ function AppHeader({
       <div className="header-status" aria-live="polite">
         <Bell aria-hidden="true" size={18} />
         <span>{notifications.length}</span>
-        <strong>{session ? roleLabels[session.role] : usingFirebaseBackend() ? 'Sin sesion' : 'Demo local'}</strong>
+        <strong>{session ? roleLabels[session.role] : usingFirebaseBackend() ? 'Sin sesión' : 'Demo local'}</strong>
         {session ? (
-          <button className="icon-header-button" type="button" onClick={onLogout} aria-label="Cerrar sesion">
+          <button className="icon-header-button" type="button" onClick={onLogout} aria-label="Cerrar sesión">
             <LogOut aria-hidden="true" size={17} />
           </button>
         ) : null}
@@ -271,7 +271,7 @@ function HomeView({
           </span>
           <h1 id="hero-title">ConectaPro</h1>
           <p>
-            Clientes publican trabajos con presupuesto protegido. Proveedores con suscripcion activa reciben solicitudes cercanas,
+            Clientes publican trabajos con presupuesto protegido. Proveedores con suscripción activa reciben solicitudes cercanas,
             aceptan, conversan y cobran al cierre.
           </p>
           <div className="hero-actions">
@@ -280,7 +280,7 @@ function HomeView({
               Publicar o aceptar trabajo
             </button>
             <button className="secondary-button" type="button" onClick={() => onNavigate('catalogo')}>
-              Ver categorias
+              Ver categorías
               <ChevronRight aria-hidden="true" size={18} />
             </button>
           </div>
@@ -295,7 +295,7 @@ function HomeView({
             </div>
             <div>
               <dt>{metrics ? `${metrics.conversionRate}%` : '68%'}</dt>
-              <dd>conversion a cierre</dd>
+              <dd>conversión a cierre</dd>
             </div>
           </dl>
         </div>
@@ -313,10 +313,10 @@ function HomeView({
         <div className="section-heading">
           <div>
             <p className="section-kicker">Servicios destacados</p>
-            <h2 id="featured-title">Categorias con mayor demanda hoy</h2>
+            <h2 id="featured-title">Categorías con mayor demanda hoy</h2>
           </div>
           <button className="ghost-button" type="button" onClick={() => onNavigate('catalogo')}>
-            Abrir catalogo
+            Abrir catálogo
           </button>
         </div>
         <div className="featured-carousel" aria-label="Carrusel de servicios destacados">
@@ -339,7 +339,7 @@ function HomeView({
         </div>
       </section>
 
-      <section className="content-section compact-catalog" aria-label="Vista rapida de categorias">
+      <section className="content-section compact-catalog" aria-label="Vista rápida de categorías">
         {categories.slice(0, 4).map((category) => (
           <button className="category-chip" key={category.id} type="button" onClick={() => onNavigate('catalogo')}>
             <span style={{ backgroundColor: category.accent }} aria-hidden="true" />
@@ -382,7 +382,7 @@ function AuthPanel({
     setBusy(true);
     try {
       if (mode === 'signup') {
-        if (role === 'admin') throw new Error('El rol admin se asigna desde una operacion privilegiada.');
+        if (role === 'admin') throw new Error('El rol admin se asigna desde una operación privilegiada.');
         await onSignup({ name, email, password, role });
       } else {
         await onLogin(role, email, password);
@@ -393,7 +393,7 @@ function AuthPanel({
   }
 
   return (
-    <form className="auth-panel" onSubmit={submit} aria-label="Inicio de sesion por rol">
+    <form className="auth-panel" onSubmit={submit} aria-label="Inicio de sesión por rol">
       <div className="segmented" role="group" aria-label="Modo de acceso">
         <button className={mode === 'login' ? 'active' : ''} type="button" aria-label="Usar modo entrar" onClick={() => setMode('login')}>
           Entrar
@@ -437,11 +437,11 @@ function AuthPanel({
       </button>
       <p className="auth-mode-note">
         {usingFirebaseBackend()
-          ? 'Firebase Auth activo. El rol admin requiere asignacion segura.'
+          ? 'Firebase Auth activo. El rol admin requiere asignación segura.'
           : 'Modo demo local: cliente/proveedor/admin usan Demo123!.'}
       </p>
       {runtimeConfig?.services?.googleOAuth || runtimeConfig?.services?.appleOAuth ? (
-        <div className="oauth-actions" aria-label="Inicio de sesion OAuth">
+        <div className="oauth-actions" aria-label="Inicio de sesión OAuth">
           {runtimeConfig.services.googleOAuth ? (
             <a className="secondary-button" href="/api/auth/oauth/google/start">
               Google
@@ -471,8 +471,8 @@ function CatalogView({
     <section className="content-section" aria-labelledby="catalog-title">
       <div className="section-heading">
         <div>
-          <p className="section-kicker">Catalogo visual</p>
-          <h2 id="catalog-title">Categorias con proveedores especializados</h2>
+          <p className="section-kicker">Catálogo visual</p>
+          <h2 id="catalog-title">Categorías con proveedores especializados</h2>
         </div>
         <button className="secondary-button" type="button" onClick={() => onNavigate(session ? routeForRole(session.role) : 'home')}>
           {session?.role === 'proveedor' ? 'Ver solicitudes' : 'Crear solicitud'}
@@ -598,7 +598,7 @@ function ClientPanel({
           <h3 id="my-posts-title">Mis publicaciones</h3>
           {loading ? <LoadingBlock /> : null}
           {!loading && requests.length === 0 ? (
-            <EmptyState title="Aun no hay publicaciones" text="Tu primera solicitud aparecera aqui con seguimiento y pagos." />
+            <EmptyState title="Aún no hay publicaciones" text="Tu primera solicitud aparecerá aquí con seguimiento y pagos." />
           ) : null}
           <div className="request-stack">
             {requests.map((request) => (
@@ -678,7 +678,7 @@ function ProviderPanel({
         </div>
       </div>
       <div className="provider-layout">
-        <aside className="workspace-panel sidebar-panel" aria-label="Suscripcion y ubicacion">
+        <aside className="workspace-panel sidebar-panel" aria-label="Suscripción y ubicación">
           {provider ? (
             <>
               <div className="plan-block">
@@ -690,7 +690,7 @@ function ProviderPanel({
                 <strong>{formatMoney(provider.subscription.price)} / mes</strong>
                 <button className="primary-button" type="button" disabled={busy} onClick={() => onPayPlan('Pro', 499)}>
                   <CreditCard aria-hidden="true" size={18} />
-                  Pagar suscripcion
+                  Pagar suscripción
                 </button>
               </div>
               <form
@@ -701,7 +701,7 @@ function ProviderPanel({
                 }}
               >
                 <label>
-                  Ubicacion de trabajo
+                  Ubicación de trabajo
                   <input value={location} onChange={(event) => setLocation(event.target.value)} />
                 </label>
                 <button className="secondary-button" type="submit" disabled={busy}>
@@ -723,7 +723,7 @@ function ProviderPanel({
           </div>
           <div className="filters-grid">
             <label>
-              Categoria
+              Categoría
               <select value={filters.category ?? 'todas'} onChange={(event) => onFiltersChange({ ...filters, category: event.target.value })}>
                 <option value="todas">Todas</option>
                 {categories.map((category) => (
@@ -734,7 +734,7 @@ function ProviderPanel({
               </select>
             </label>
             <label>
-              Busqueda
+              Búsqueda
               <span className="input-icon">
                 <Search aria-hidden="true" size={18} />
                 <input value={filters.search ?? ''} onChange={(event) => onFiltersChange({ ...filters, search: event.target.value })} />
@@ -765,7 +765,7 @@ function ProviderPanel({
           </div>
           {loading ? <LoadingBlock /> : null}
           {!loading && requests.length === 0 ? (
-            <EmptyState title="No hay trabajos con estos filtros" text="Ajusta categoria, presupuesto o distancia para ampliar oportunidades." />
+            <EmptyState title="No hay trabajos con estos filtros" text="Ajusta categoría, presupuesto o distancia para ampliar oportunidades." />
           ) : null}
           <div className="request-stack">
             {requests.map((request) => (
@@ -829,7 +829,7 @@ function ProviderKycPanel({
   return (
     <form
       className="kyc-form"
-      aria-label="Verificacion documental de proveedor"
+      aria-label="Verificación documental de proveedor"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmitVerification({ providerId: provider.id, legalName, taxId, address, notes, files });
@@ -841,7 +841,7 @@ function ProviderKycPanel({
           {status}
         </span>
       </div>
-      <p>Sube identificacion y RFC/comprobante para verificacion real por admin.</p>
+      <p>Sube identificación y RFC/comprobante para verificación real por admin.</p>
       <label>
         Nombre legal
         <input required minLength={3} value={legalName} onChange={(event) => setLegalName(event.target.value)} />
@@ -855,11 +855,11 @@ function ProviderKycPanel({
         <input required minLength={7} value={address} onChange={(event) => setAddress(event.target.value)} />
       </label>
       <label>
-        Notas para revision
+        Notas para revisión
         <textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
       </label>
       <label>
-        Identificacion oficial
+        Identificación oficial
         <input required={!verification} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setDocFile('identificacion', event.target.files?.[0])} />
       </label>
       <label>
@@ -910,13 +910,13 @@ function DetailView({
   onAccept: (request: ServiceRequest) => void;
 }) {
   const [chatText, setChatText] = useState('');
-  const [reviewText, setReviewText] = useState('Servicio puntual y con buena comunicacion.');
-  const [disputeText, setDisputeText] = useState('Necesito revision porque el servicio no quedo como se acordo.');
+  const [reviewText, setReviewText] = useState('Servicio puntual y con buena comunicación.');
+  const [disputeText, setDisputeText] = useState('Necesito revisión porque el servicio no quedo como se acordo.');
   const [docUrl, setDocUrl] = useState('');
   const [docFile, setDocFile] = useState<File | null>(null);
 
   if (loading) return <LoadingBlock label="Cargando detalle..." />;
-  if (!request) return <EmptyState title="Selecciona una solicitud" text="Abre una publicacion para ver timeline, chat y pagos." />;
+  if (!request) return <EmptyState title="Selecciona una solicitud" text="Abre una publicación para ver timeline, chat y pagos." />;
 
   const category = getCategory(categories, request.categoryId);
   const canProviderAct = session.role === 'proveedor' && ['abierta', 'cotizada', 'aceptada', 'en_camino', 'en_progreso'].includes(request.status);
@@ -966,7 +966,7 @@ function DetailView({
               <>
                 <button className="secondary-button" disabled={busy} type="button" onClick={() => onQuote(request)}>
                   <CircleDollarSign aria-hidden="true" size={18} />
-                  Enviar cotizacion
+                  Enviar cotización
                 </button>
                 <button className="primary-button" disabled={busy} type="button" onClick={() => onAccept(request)}>
                   <CheckCircle2 aria-hidden="true" size={18} />
@@ -975,10 +975,10 @@ function DetailView({
                 <button className="ghost-button" disabled={busy} type="button" onClick={() => onStatus('en_camino', 'Proveedor va en camino al domicilio.')}>
                   Marcar en camino
                 </button>
-                <button className="ghost-button" disabled={busy} type="button" onClick={() => onStatus('en_progreso', 'Proveedor inicio el trabajo en sitio.')}>
+                <button className="ghost-button" disabled={busy} type="button" onClick={() => onStatus('en_progreso', 'Proveedor inició el trabajo en sitio.')}>
                   Iniciar trabajo
                 </button>
-                <button className="ghost-button" disabled={busy} type="button" onClick={() => onStatus('pendiente_pago', 'Proveedor solicito liberacion de pago.')}>
+                <button className="ghost-button" disabled={busy} type="button" onClick={() => onStatus('pendiente_pago', 'Proveedor solicitó liberacion de pago.')}>
                   Solicitar pago
                 </button>
               </>
@@ -1015,12 +1015,12 @@ function DetailView({
                   }}
                 >
                   <label>
-                    Resena
+                    Reseña
                     <textarea value={reviewText} onChange={(event) => setReviewText(event.target.value)} />
                   </label>
                   <button className="secondary-button" disabled={busy} type="submit">
                     <Star aria-hidden="true" size={18} />
-                    Enviar resena
+                    Enviar reseña
                   </button>
                 </form>
                 <form
@@ -1066,7 +1066,7 @@ function DetailView({
           ) : null}
           <div className="document-box">
             <h4>Soporte documental</h4>
-            {documents.length === 0 ? <p className="muted">Aun no hay evidencias cargadas.</p> : null}
+            {documents.length === 0 ? <p className="muted">Aún no hay evidencias cargadas.</p> : null}
             {documents.map((doc) => (
               <a key={doc.id} href={doc.fileUrl} target="_blank" rel="noreferrer">
                 {doc.fileName} · {doc.reviewStatus}
@@ -1115,7 +1115,7 @@ function DetailView({
         <section className="workspace-panel chat-panel" aria-labelledby="chat-title">
           <h3 id="chat-title">Chat</h3>
           <div className="messages" aria-live="polite">
-            {messages.length === 0 ? <p className="muted">Aun no hay mensajes en esta solicitud.</p> : null}
+            {messages.length === 0 ? <p className="muted">Aún no hay mensajes en esta solicitud.</p> : null}
             {messages.map((message) => (
               <div className={`message ${message.senderRole === session.role ? 'mine' : ''}`} key={message.id}>
                 <strong>{message.senderName}</strong>
@@ -1194,12 +1194,12 @@ function AdminPanel({
       <div className="dashboard-hero">
         <div>
           <p className="section-kicker">Panel admin</p>
-          <h2 id="admin-title">Operacion, verificacion y disputas</h2>
+          <h2 id="admin-title">Operación, verificación y disputas</h2>
         </div>
         <ShieldCheck aria-hidden="true" size={34} />
       </div>
       {loading ? <LoadingBlock /> : null}
-      <div className="metric-grid" aria-label="Metricas">
+      <div className="metric-grid" aria-label="Métricas">
         <MetricCard label="Solicitudes activas" value={metrics?.activeRequests ?? 0} />
         <MetricCard label="Proveedores activos" value={metrics?.activeProviders ?? 0} />
         <MetricCard label="Escrow retenido" value={formatMoney(metrics?.escrowBalance ?? 0)} />
@@ -1235,15 +1235,15 @@ function AdminPanel({
                   </small>
                 </div>
                 <button className={provider.verified ? 'ghost-button' : 'primary-button'} disabled={busy} type="button" onClick={() => onVerify(provider)}>
-                  {provider.verified ? 'Quitar verificacion' : 'Verificar'}
+                  {provider.verified ? 'Quitar verificación' : 'Verificar'}
                 </button>
               </article>
             ))}
           </div>
         </section>
         <section className="workspace-panel" aria-labelledby="kyc-review-title">
-          <h3 id="kyc-review-title">Revision KYC</h3>
-          {providerVerifications.length === 0 ? <EmptyState title="Sin expedientes KYC" text="Los envios documentales de proveedores apareceran aqui." /> : null}
+          <h3 id="kyc-review-title">Revisión KYC</h3>
+          {providerVerifications.length === 0 ? <EmptyState title="Sin expedientes KYC" text="Los envíos documentales de proveedores aparecerán aquí." /> : null}
           <div className="provider-list">
             {providerVerifications.map((verification) => (
               <article key={verification.id} className="provider-row">
@@ -1263,7 +1263,7 @@ function AdminPanel({
                   <button className="primary-button compact" disabled={busy || verification.status === 'aprobado'} type="button" onClick={() => onReviewVerification(verification.providerId, 'aprobado')}>
                     Aprobar
                   </button>
-                  <button className="danger-button compact" disabled={busy || verification.status === 'rechazado'} type="button" onClick={() => onReviewVerification(verification.providerId, 'rechazado', 'Documentacion incompleta o inconsistente.')}>
+                  <button className="danger-button compact" disabled={busy || verification.status === 'rechazado'} type="button" onClick={() => onReviewVerification(verification.providerId, 'rechazado', 'Documentación incompleta o inconsistente.')}>
                     Rechazar
                   </button>
                 </div>
@@ -1273,7 +1273,7 @@ function AdminPanel({
         </section>
         <section className="workspace-panel" aria-labelledby="disputes-title">
           <h3 id="disputes-title">Resolver disputas</h3>
-          {disputes.length === 0 ? <EmptyState title="Sin disputas abiertas" text="Las solicitudes con revision apareceran aqui." /> : null}
+          {disputes.length === 0 ? <EmptyState title="Sin disputas abiertas" text="Las solicitudes con revisión aparecerán aquí." /> : null}
           <div className="request-stack">
             {disputes.map((request) => (
               <RequestListCard
@@ -1313,7 +1313,7 @@ function AdminPanel({
         </section>
         <section className="workspace-panel" aria-labelledby="payments-title">
           <div className="panel-heading">
-            <h3 id="payments-title">Pagos y conciliacion</h3>
+            <h3 id="payments-title">Pagos y conciliación</h3>
             <button className="ghost-button" type="button" disabled={busy} onClick={onReconcile}>
               Conciliar
             </button>
@@ -1325,7 +1325,7 @@ function AdminPanel({
                 <p>{payment.kind} por {formatMoney(payment.amount)}</p>
               </article>
             ))}
-            {payments.length === 0 ? <p className="muted">Aun no hay pagos registrados.</p> : null}
+            {payments.length === 0 ? <p className="muted">Aún no hay pagos registrados.</p> : null}
           </div>
         </section>
         <section className="workspace-panel" aria-labelledby="docs-title">
@@ -1341,7 +1341,7 @@ function AdminPanel({
           </div>
         </section>
         <section className="workspace-panel" aria-labelledby="audit-title">
-          <h3 id="audit-title">Auditoria</h3>
+          <h3 id="audit-title">Auditoría</h3>
           <div className="ops-list">
             {auditLogs.slice(0, 6).map((log) => (
               <article key={log.id}>
@@ -1349,7 +1349,7 @@ function AdminPanel({
                 <p>{log.entityType}{log.entityId ? ` · ${log.entityId}` : ''}</p>
               </article>
             ))}
-            {auditLogs.length === 0 ? <p className="muted">La actividad sensible aparecera aqui.</p> : null}
+            {auditLogs.length === 0 ? <p className="muted">La actividad sensible aparecerá aquí.</p> : null}
           </div>
         </section>
       </div>
@@ -1464,7 +1464,7 @@ function OpenStreetDemandMap({ points, categories }: { points: HeatPoint[]; cate
               '--heat-size': `${34 + point.intensity / 2}px`
             } as CSSProperties}
             type="button"
-            aria-label={`${point.label}, intensidad ${point.intensity}, categoria ${category?.name ?? 'servicio'}`}
+            aria-label={`${point.label}, intensidad ${point.intensity}, categoría ${category?.name ?? 'servicio'}`}
           >
             <span>{point.intensity}</span>
             <small>{point.label}</small>
@@ -1585,7 +1585,7 @@ export function App() {
       setNotifications(notificationsData);
     } catch (err) {
       captureAppError(err, 'loadCore', { role });
-      setError(err instanceof Error ? err.message : 'Error inesperado al cargar catalogo.');
+      setError(err instanceof Error ? err.message : 'Error inesperado al cargar catálogo.');
     } finally {
       setLoading(false);
     }
@@ -1735,10 +1735,10 @@ export function App() {
       await loadCore(nextSession.role);
       await loadRoleData(nextSession);
       addAppBreadcrumb('login_success', { role: nextSession.role });
-      showToast('success', `Sesion activa como ${roleLabels[nextSession.role]}.`);
+      showToast('success', `Sesión activa como ${roleLabels[nextSession.role]}.`);
     } catch (err) {
       captureAppError(err, 'login', { role });
-      showToast('error', err instanceof Error ? err.message : 'No pudimos iniciar sesion.');
+      showToast('error', err instanceof Error ? err.message : 'No pudimos iniciar sesión.');
     } finally {
       setBusy(false);
     }
@@ -1780,10 +1780,10 @@ export function App() {
       setNotifications([]);
       setView('home');
       await loadCore();
-      showToast('success', 'Sesion cerrada.');
+      showToast('success', 'Sesión cerrada.');
     } catch (err) {
       captureAppError(err, 'logout');
-      showToast('error', err instanceof Error ? err.message : 'No pudimos cerrar sesion.');
+      showToast('error', err instanceof Error ? err.message : 'No pudimos cerrar sesión.');
     } finally {
       setBusy(false);
     }
@@ -1798,7 +1798,7 @@ export function App() {
       showToast('success', success);
     } catch (err) {
       captureAppError(err, 'runAction', { success });
-      showToast('error', err instanceof Error ? err.message : 'No pudimos completar la accion.');
+      showToast('error', err instanceof Error ? err.message : 'No pudimos completar la acción.');
     } finally {
       setBusy(false);
     }
@@ -1870,7 +1870,7 @@ export function App() {
             runAction(async () => {
               const checkout = await api.paySubscription(activeProviderId, plan, price);
               handleCheckoutResult(checkout);
-            }, 'Suscripcion procesada correctamente.')
+            }, 'Suscripción procesada correctamente.')
           }
           onUpdateLocation={(address) =>
             runAction(async () => {
@@ -1879,13 +1879,13 @@ export function App() {
                 lat: provider?.location.lat ?? 19.4328,
                 lng: provider?.location.lng ?? -99.1333
               });
-            }, 'Ubicacion actualizada.')
+            }, 'Ubicación actualizada.')
           }
           onSubmitVerification={(payload) =>
             runAction(async () => {
               const verification = await api.submitProviderVerification(payload);
               setProviderVerification(verification);
-            }, 'Expediente KYC enviado para revision.')
+            }, 'Expediente KYC enviado para revisión.')
           }
           onAccept={(request) =>
             runAction(async () => {
@@ -1893,7 +1893,7 @@ export function App() {
                 request.id,
                 activeProviderId,
                 request.budget,
-                'Acepto el trabajo con agenda confirmada y garantia de servicio.'
+                'Acepto el trabajo con agenda confirmada y garantía de servicio.'
               );
               setSelectedRequestId(accepted.id);
               setView('detalle');
@@ -1905,11 +1905,11 @@ export function App() {
                 request.id,
                 activeProviderId,
                 request.budget,
-                'Cotizacion enviada con mano de obra, materiales basicos y visita incluidos.'
+                'Cotización enviada con mano de obra, materiales básicos y visita incluidos.'
               );
               setSelectedRequestId(quoted.id);
               setView('detalle');
-            }, 'Cotizacion enviada al cliente.')
+            }, 'Cotización enviada al cliente.')
           }
           onOpenDetail={openDetail}
         />
@@ -1947,13 +1947,13 @@ export function App() {
               setProviderVerifications((current) => current.map((item) => (item.id === reviewed.id ? reviewed : item)));
               const refreshedProviders = await api.providers();
               setProviders(refreshedProviders);
-            }, status === 'aprobado' ? 'Proveedor verificado.' : 'Verificacion rechazada.')
+            }, status === 'aprobado' ? 'Proveedor verificado.' : 'Verificación rechazada.')
           }
           onReconcile={() =>
             runAction(async () => {
               const reconciled = await api.reconcilePayments();
               setPayments(reconciled);
-            }, 'Conciliacion ejecutada.')
+            }, 'Conciliación ejecutada.')
           }
           onOpenDetail={openDetail}
         />
@@ -2056,14 +2056,14 @@ export function App() {
               selectedRequestId
                 ? runAction(async () => {
                     await api.review(selectedRequestId, rating, comment);
-                  }, 'Resena enviada.')
+                  }, 'Reseña enviada.')
                 : undefined
             }
             onDispute={(reason) =>
               selectedRequestId
                 ? runAction(async () => {
                     await api.dispute(selectedRequestId, reason);
-                  }, 'Disputa abierta para revision.')
+                  }, 'Disputa abierta para revisión.')
                 : undefined
             }
             onQuote={(request) =>
@@ -2072,9 +2072,9 @@ export function App() {
                   request.id,
                   activeProviderId,
                   request.budget,
-                  'Cotizacion enviada con disponibilidad confirmada y garantia incluida.'
+                  'Cotización enviada con disponibilidad confirmada y garantía incluida.'
                 );
-              }, 'Cotizacion enviada.')
+              }, 'Cotización enviada.')
             }
             onAccept={(request) =>
               runAction(async () => {

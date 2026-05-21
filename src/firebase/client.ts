@@ -62,7 +62,7 @@ function connectEmulators(nextAuth: Auth, nextDb: Firestore, nextStorage: Fireba
 
 export function getFirebaseClient() {
   if (!isFirebaseConfigured()) {
-    throw new Error('Firebase no esta configurado. Revisa las variables VITE_FIREBASE_*.');
+    throw new Error('Firebase no está configurado. Revisa las variables VITE_FIREBASE_*.');
   }
 
   if (!app) {

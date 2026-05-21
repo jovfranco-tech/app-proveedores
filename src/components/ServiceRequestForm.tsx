@@ -23,7 +23,7 @@ export function ServiceRequestForm({ categories, clientId, busy = false, onCreat
   const [categoryId, setCategoryId] = useState(firstCategory);
   const [dateTime, setDateTime] = useState(defaultDateTime);
   const [address, setAddress] = useState('');
-  const [city, setCity] = useState('Ciudad de Mexico');
+  const [city, setCity] = useState('Ciudad de México');
   const [budget, setBudget] = useState(1200);
   const [description, setDescription] = useState('');
   const [useLocation, setUseLocation] = useState(true);
@@ -60,7 +60,7 @@ export function ServiceRequestForm({ categories, clientId, busy = false, onCreat
     <form className="request-form" aria-label="Crear solicitud de servicio" onSubmit={handleSubmit}>
       <div className="form-grid">
         <label>
-          Titulo del trabajo
+          Título del trabajo
           <input
             required
             minLength={8}
@@ -70,7 +70,7 @@ export function ServiceRequestForm({ categories, clientId, busy = false, onCreat
           />
         </label>
         <label>
-          Categoria
+          Categoría
           <select
             required
             value={categoryId}
@@ -106,14 +106,14 @@ export function ServiceRequestForm({ categories, clientId, busy = false, onCreat
           />
         </label>
         <label className="span-2">
-          Direccion
+          Dirección
           <span className="input-icon">
             <MapPin aria-hidden="true" size={18} />
             <input
               required
               value={address}
               onChange={(event) => setAddress(event.target.value)}
-              placeholder="Colonia, alcaldia o referencia"
+              placeholder="Colonia, alcaldía o referencia"
             />
           </span>
         </label>
@@ -125,7 +125,7 @@ export function ServiceRequestForm({ categories, clientId, busy = false, onCreat
           <input type="checkbox" checked={useLocation} onChange={(event) => setUseLocation(event.target.checked)} />
           <span>
             <LocateFixed aria-hidden="true" size={18} />
-            Adjuntar ubicacion aproximada
+            Adjuntar ubicación aproximada
           </span>
         </label>
         <label className="span-2">
@@ -135,13 +135,13 @@ export function ServiceRequestForm({ categories, clientId, busy = false, onCreat
             minLength={15}
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            placeholder="Describe materiales, acceso, urgencia o fotos que compartiras en el chat."
+            placeholder="Describe materiales, acceso, urgencia o fotos que compartirás en el chat."
           />
         </label>
       </div>
       <div className="form-footer">
         <p aria-live="polite">
-          {category ? `Promedio de ${category.name}: ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(category.averagePrice)}` : 'Selecciona una categoria'}
+          {category ? `Promedio de ${category.name}: ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(category.averagePrice)}` : 'Selecciona una categoría'}
         </p>
         <button className="primary-button" disabled={busy || !categories.length} type="submit">
           <SendHorizontal aria-hidden="true" size={18} />

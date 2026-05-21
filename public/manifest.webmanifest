@@ -1,7 +1,7 @@
 {
   "name": "ConectaPro",
   "short_name": "ConectaPro",
-  "description": "Marketplace para solicitar, aceptar y administrar servicios locales en Mexico.",
+  "description": "Marketplace para solicitar, aceptar y administrar servicios locales en México.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -26,9 +26,9 @@
   ],
   "shortcuts": [
     {
-      "name": "Catalogo de servicios",
-      "short_name": "Catalogo",
-      "description": "Explorar categorias y servicios disponibles",
+      "name": "Catálogo de servicios",
+      "short_name": "Catálogo",
+      "description": "Explorar categorías y servicios disponibles",
       "url": "/",
       "icons": [{ "src": "/icons/conectapro-icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },

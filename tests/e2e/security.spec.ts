@@ -21,7 +21,7 @@ async function createClientRequest(request: APIRequestContext, token: string) {
       title: `Prueba documental ${Date.now()}`,
       categoryId: 'cerrajeria',
       address: 'Av. Insurgentes Sur 1200, CDMX',
-      city: 'Ciudad de Mexico',
+      city: 'Ciudad de México',
       dateTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       budget: 1400,
       description: 'Necesito evidencia fotografica para revisar el cierre del servicio.'
@@ -31,7 +31,7 @@ async function createClientRequest(request: APIRequestContext, token: string) {
   return (await response.json()).data as { id: string };
 }
 
-test('rechaza requests protegidos sin sesion', async ({ request }) => {
+test('rechaza requests protegidos sin sesión', async ({ request }) => {
   const response = await request.get('/api/requests');
   expect(response.status()).toBe(401);
 });
@@ -44,7 +44,7 @@ test('cliente no puede abrir metricas admin', async ({ request }) => {
   expect(response.status()).toBe(403);
 });
 
-test('proveedor no puede crear solicitudes ni editar otra ubicacion', async ({ request }) => {
+test('proveedor no puede crear solicitudes ni editar otra ubicación', async ({ request }) => {
   const token = await login(request, 'proveedor');
   const create = await request.post('/api/requests', {
     headers: { Authorization: `Bearer ${token}` },
@@ -84,7 +84,7 @@ test('valida edge cases de payload antes de persistir', async ({ request }) => {
   const invalidCategory = await request.post('/api/requests', {
     headers: { Authorization: `Bearer ${token}` },
     data: {
-      title: 'Categoria invalida',
+      title: 'Categoría invalida',
       categoryId: 'no-existe',
       address: 'Roma Norte, CDMX',
       dateTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
@@ -95,7 +95,7 @@ test('valida edge cases de payload antes de persistir', async ({ request }) => {
   expect(invalidCategory.status()).toBe(400);
 });
 
-test('resiste carga concurrente ligera en endpoints criticos', async ({ request }) => {
+test('resiste carga concurrente ligera en endpoints críticos', async ({ request }) => {
   const token = await login(request, 'proveedor');
   const responses = await Promise.all(
     Array.from({ length: 24 }, (_, index) => {
@@ -107,7 +107,7 @@ test('resiste carga concurrente ligera en endpoints criticos', async ({ request 
   expect(responses.every((response) => response.ok())).toBeTruthy();
 });
 
-test('admin puede conciliar pagos y consultar auditoria', async ({ request }) => {
+test('admin puede conciliar pagos y consultar auditoría', async ({ request }) => {
   const token = await login(request, 'admin');
   const reconcile = await request.post('/api/admin/payments/reconcile', {
     headers: { Authorization: `Bearer ${token}` }

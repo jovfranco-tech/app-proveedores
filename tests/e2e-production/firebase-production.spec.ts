@@ -15,15 +15,15 @@ async function login(page: Page, role: keyof typeof demoUsers) {
 }
 
 async function logout(page: Page) {
-  await page.getByLabel(/Cerrar sesion/i).click();
-  await expect(page.getByText(/Sin sesion/i)).toBeVisible();
+  await page.getByLabel(/Cerrar sesión/i).click();
+  await expect(page.getByText(/Sin sesión/i)).toBeVisible();
 }
 
-test('catalogo y mapa publico cargan desde Firebase sin sesion', async ({ page }) => {
+test('catálogo y mapa público cargan desde Firebase sin sesión', async ({ page }) => {
   await page.goto('/');
 
   await expect(page.getByRole('heading', { name: 'ConectaPro' })).toBeVisible();
-  await page.getByRole('button', { name: 'Catalogo', exact: true }).click();
+  await page.getByRole('button', { name: 'Catálogo', exact: true }).click();
   await expect(page.locator('.category-card')).toHaveCount(8);
 
   await page.getByRole('button', { name: /Mapa/i }).click();
@@ -32,7 +32,7 @@ test('catalogo y mapa publico cargan desde Firebase sin sesion', async ({ page }
   await expect(page.getByText(/permission-denied/i)).toHaveCount(0);
 });
 
-test('los tres roles demo inician sesion y ven su dashboard', async ({ page }) => {
+test('los tres roles demo inician sesión y ven su dashboard', async ({ page }) => {
   await login(page, 'cliente');
   await expect(page.getByRole('heading', { name: /Publica solicitudes/i })).toBeVisible();
   await logout(page);
@@ -42,7 +42,7 @@ test('los tres roles demo inician sesion y ven su dashboard', async ({ page }) =
   await logout(page);
 
   await login(page, 'admin');
-  await expect(page.getByRole('heading', { name: /Operacion, verificacion y disputas/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Operación, verificación y disputas/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /Verificar proveedores/i })).toBeVisible();
 });
 
@@ -50,17 +50,17 @@ test('cliente crea solicitud y proveedor la puede cotizar', async ({ page }) => 
   const title = `E2E chapa Firebase ${Date.now()}`;
 
   await login(page, 'cliente');
-  await page.getByLabel(/Titulo del trabajo/i).fill(title);
-  await page.getByLabel(/Categoria/i).selectOption('cerrajeria');
-  await page.getByLabel(/Direccion/i).fill('Roma Norte, Cuauhtemoc');
+  await page.getByLabel(/Título del trabajo/i).fill(title);
+  await page.getByLabel(/Categoría/i).selectOption('cerrajeria');
+  await page.getByLabel(/Dirección/i).fill('Roma Norte, Cuauhtemoc');
   await page.getByLabel(/Presupuesto MXN/i).fill('1300');
-  await page.getByLabel(/Detalles/i).fill('Prueba E2E de produccion para validar solicitud real en Firebase.');
+  await page.getByLabel(/Detalles/i).fill('Prueba E2E de producción para validar solicitud real en Firebase.');
   await page.getByRole('button', { name: /Publicar solicitud/i }).click();
   await expect(page.getByRole('heading', { name: title })).toBeVisible();
   await logout(page);
 
   await login(page, 'proveedor');
-  await page.getByLabel(/Busqueda/i).fill(title);
+  await page.getByLabel(/Búsqueda/i).fill(title);
   await page.getByRole('button', { name: /Aplicar filtros/i }).click();
   await expect(page.getByText(title)).toBeVisible();
   const requestCard = page.locator('.request-card').filter({ hasText: title });
@@ -78,8 +78,8 @@ test('proveedor envia KYC con documentos y admin lo aprueba', async ({ page }) =
   await page.getByLabel(/Nombre legal/i).fill(legalName);
   await page.getByRole('textbox', { name: 'RFC' }).fill('ABC010203XYZ');
   await page.getByLabel(/Domicilio fiscal/i).fill('Centro Historico, CDMX');
-  await page.getByLabel(/Notas para revision/i).fill('Expediente KYC generado por prueba E2E de produccion.');
-  await page.getByLabel(/Identificacion oficial/i).setInputFiles({
+  await page.getByLabel(/Notas para revisión/i).fill('Expediente KYC generado por prueba E2E de producción.');
+  await page.getByLabel(/Identificación oficial/i).setInputFiles({
     name: 'identificacion-e2e.pdf',
     mimeType: 'application/pdf',
     buffer: Buffer.from('%PDF-1.4\\n% E2E identificacion\\n')
@@ -94,7 +94,7 @@ test('proveedor envia KYC con documentos y admin lo aprueba', async ({ page }) =
   await logout(page);
 
   await login(page, 'admin');
-  await expect(page.getByRole('heading', { name: /Revision KYC/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Revisión KYC/i })).toBeVisible();
   const kycRow = page.locator('section[aria-labelledby="kyc-review-title"] .provider-row').first();
   await expect(kycRow).toBeVisible();
   await kycRow.getByRole('button', { name: /Aprobar/i }).click();

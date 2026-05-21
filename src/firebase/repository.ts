@@ -122,7 +122,7 @@ async function profileFromUser(user: User, expectedRole?: Role): Promise<UserSes
   const snapshot = await getDoc(doc(db, 'users', user.uid));
   if (!snapshot.exists()) {
     if (expectedRole === 'admin') {
-      throw new Error('El rol admin debe ser asignado por una operacion privilegiada.');
+      throw new Error('El rol admin debe ser asignado por una operación privilegiada.');
     }
     const role: Exclude<Role, 'admin'> = expectedRole === 'proveedor' ? 'proveedor' : 'cliente';
     const providerId = role === 'proveedor' ? `prov_${user.uid}` : undefined;
@@ -169,7 +169,7 @@ async function createProviderProfile(user: UserSession, providerId: string) {
     location: {
       lat: 19.4328,
       lng: -99.1333,
-      address: 'Ciudad de Mexico'
+      address: 'Ciudad de México'
     },
     createdAt: nowIso(),
     updatedAt: nowIso()
@@ -178,11 +178,11 @@ async function createProviderProfile(user: UserSession, providerId: string) {
 
 async function callPrivileged<T>(path: string, body: Record<string, unknown>) {
   if (!firebaseFunctionsBaseUrl) {
-    throw new Error('Configura VITE_FIREBASE_FUNCTIONS_BASE_URL para ejecutar pagos o acciones privilegiadas.');
+    throw new Error('Configura VITE_FIREBASE_FUNCTIONS_BASE_URL para ejecutar pagos o acciónes privilegiadas.');
   }
   const { auth } = getFirebaseClient();
   const token = await auth.currentUser?.getIdToken();
-  if (!token) throw new Error('Inicia sesion para continuar.');
+  if (!token) throw new Error('Inicia sesión para continuar.');
 
   const response = await fetch(`${firebaseFunctionsBaseUrl.replace(/\/$/, '')}${path}`, {
     method: 'POST',
@@ -193,7 +193,7 @@ async function callPrivileged<T>(path: string, body: Record<string, unknown>) {
     body: JSON.stringify(body)
   });
   const payload = (await response.json().catch(() => null)) as { data?: T; message?: string } | null;
-  if (!response.ok) throw new Error(payload?.message ?? 'La operacion privilegiada no pudo completarse.');
+  if (!response.ok) throw new Error(payload?.message ?? 'La operación privilegiada no pudo completarse.');
   if (!payload?.data) throw new Error('La funcion no regreso el formato esperado.');
   return payload.data;
 }
@@ -356,7 +356,7 @@ export const firebaseRepository = {
       timeline: arrayUnion({
         id: nanoid(),
         status: 'cotizada',
-        label: `${provider.name} envio una cotizacion por ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount)}.`,
+        label: `${provider.name} envió una cotización por ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount)}.`,
         actor: 'proveedor',
         createdAt
       }),
@@ -377,7 +377,7 @@ export const firebaseRepository = {
       timeline: arrayUnion({
         id: nanoid(),
         status: 'aceptada',
-        label: `${provider.name} acepto el trabajo. El pago debe confirmarse por checkout o webhook antes de retener escrow.`,
+        label: `${provider.name} aceptó el trabajo. El pago debe confirmarse por checkout o webhook antes de retener escrow.`,
         actor: 'proveedor',
         createdAt
       }),
@@ -392,7 +392,7 @@ export const firebaseRepository = {
 
   async sendMessage(id: string, senderRole: Role, senderName: string, message: string) {
     const { auth, db } = getFirebaseClient();
-    if (!auth.currentUser) throw new Error('Inicia sesion para enviar mensajes.');
+    if (!auth.currentUser) throw new Error('Inicia sesión para enviar mensajes.');
     const created: Omit<ChatMessage, 'id'> & { senderId: string } = {
       requestId: id,
       senderId: auth.currentUser.uid,
@@ -422,7 +422,7 @@ export const firebaseRepository = {
     await updateDoc(doc(db, 'serviceRequests', id), {
       status: 'disputa',
       dispute: { reason, status: 'abierta' },
-      timeline: arrayUnion({ id: nanoid(), status: 'disputa', label: 'Cliente abrio disputa con evidencia.', actor: 'cliente', createdAt: nowIso() }),
+      timeline: arrayUnion({ id: nanoid(), status: 'disputa', label: 'Cliente abrió disputa con evidencia.', actor: 'cliente', createdAt: nowIso() }),
       updatedAt: nowIso()
     });
     return this.request(id);
@@ -455,7 +455,7 @@ export const firebaseRepository = {
 
   async createDocument(requestId: string, payload: Pick<SupportDocument, 'docType' | 'fileName' | 'fileUrl'>) {
     const { auth, db } = getFirebaseClient();
-    if (!auth.currentUser) throw new Error('Inicia sesion para adjuntar documentos.');
+    if (!auth.currentUser) throw new Error('Inicia sesión para adjuntar documentos.');
     const documentPayload: Omit<SupportDocument, 'id'> = {
       requestId,
       uploadedBy: auth.currentUser.uid,
@@ -471,7 +471,7 @@ export const firebaseRepository = {
 
   async uploadDocumentFile(requestId: string, file: File) {
     const { auth, db, storage } = getFirebaseClient();
-    if (!auth.currentUser) throw new Error('Inicia sesion para subir archivos.');
+    if (!auth.currentUser) throw new Error('Inicia sesión para subir archivos.');
     const documentId = nanoid();
     const objectKey = `supportDocuments/${requestId}/${documentId}/${file.name}`;
     const storageRef = ref(storage, objectKey);
@@ -506,7 +506,7 @@ export const firebaseRepository = {
 
   async submitProviderVerification(payload: ProviderVerificationPayload) {
     const { auth, db, storage } = getFirebaseClient();
-    if (!auth.currentUser) throw new Error('Inicia sesion para enviar verificacion.');
+    if (!auth.currentUser) throw new Error('Inicia sesión para enviar verificación.');
     const requestId = payload.providerId;
     const createdAt = nowIso();
     const documents: ProviderVerificationDocument[] = [];
@@ -613,7 +613,7 @@ export const firebaseRepository = {
         id: 'kyc_pending',
         severity: pendingKyc.length > 5 ? 'critical' : 'warning',
         title: 'KYC pendiente',
-        message: `${pendingKyc.length} proveedor(es) esperan revision documental.`,
+        message: `${pendingKyc.length} proveedor(es) esperan revisión documental.`,
         source: 'kyc',
         status: 'open',
         createdAt: now
@@ -624,7 +624,7 @@ export const firebaseRepository = {
         id: 'disputes_open',
         severity: disputes.length > 3 ? 'critical' : 'warning',
         title: 'Disputas abiertas',
-        message: `${disputes.length} caso(s) requieren resolucion de soporte.`,
+        message: `${disputes.length} caso(s) requieren resolución de soporte.`,
         source: 'disputes',
         status: 'open',
         createdAt: now
@@ -634,8 +634,8 @@ export const firebaseRepository = {
       alerts.push({
         id: 'payments_requires_action',
         severity: 'info',
-        title: 'Pagos esperando confirmacion',
-        message: 'Hay checkouts creados que aun no han sido confirmados por webhook.',
+        title: 'Pagos esperando confirmación',
+        message: 'Hay checkouts creados que aún no han sido confirmados por webhook.',
         source: 'payments',
         status: 'open',
         createdAt: now
@@ -645,7 +645,7 @@ export const firebaseRepository = {
       alerts.push({
         id: 'fraud_high_score',
         severity: 'critical',
-        title: 'Senales antifraude altas',
+        title: 'Señales antifraude altas',
         message: 'Hay solicitudes con score antifraude elevado.',
         source: 'security',
         status: 'open',

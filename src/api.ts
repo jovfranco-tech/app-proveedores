@@ -47,7 +47,7 @@ function clone<T>(value: T): T {
 }
 
 function assertDemoSession() {
-  if (!demoSession) throw new Error('Inicia sesion para continuar.');
+  if (!demoSession) throw new Error('Inicia sesión para continuar.');
   return demoSession;
 }
 
@@ -141,7 +141,7 @@ const demoApi = {
         location: {
           lat: 19.4328,
           lng: -99.1333,
-          address: 'Ciudad de Mexico'
+          address: 'Ciudad de México'
         }
       });
     }
@@ -229,7 +229,7 @@ const demoApi = {
     request.providerId = providerId;
     request.status = 'cotizada';
     request.quote = { providerId, amount, message };
-    request.timeline.push({ id: nanoid(), status: 'cotizada', label: 'Proveedor envio una cotizacion.', actor: 'proveedor', createdAt: nowIso() });
+    request.timeline.push({ id: nanoid(), status: 'cotizada', label: 'Proveedor envió una cotización.', actor: 'proveedor', createdAt: nowIso() });
     pushAudit('quote.created', 'serviceRequest', id, { providerId, amount });
     return clone(request);
   },
@@ -241,7 +241,7 @@ const demoApi = {
     request.status = 'aceptada';
     request.quote = { providerId, amount, message };
     request.escrow = { amount, status: 'sin_pago' };
-    request.timeline.push({ id: nanoid(), status: 'aceptada', label: 'Proveedor acepto el trabajo y preparo el escrow.', actor: 'proveedor', createdAt: nowIso() });
+    request.timeline.push({ id: nanoid(), status: 'aceptada', label: 'Proveedor aceptó el trabajo y preparó el escrow.', actor: 'proveedor', createdAt: nowIso() });
     pushAudit('request.accepted', 'serviceRequest', id, { providerId, amount });
     return clone(request);
   },
@@ -295,7 +295,7 @@ const demoApi = {
     const request = ensureRequest(id);
     request.status = 'disputa';
     request.dispute = { reason, status: 'abierta' };
-    request.timeline.push({ id: nanoid(), status: 'disputa', label: 'Cliente abrio disputa con evidencia.', actor: 'cliente', createdAt: nowIso() });
+    request.timeline.push({ id: nanoid(), status: 'disputa', label: 'Cliente abrió disputa con evidencia.', actor: 'cliente', createdAt: nowIso() });
     pushAudit('dispute.created', 'serviceRequest', id);
     return clone(request);
   },
@@ -443,7 +443,7 @@ const demoApi = {
         requestId: request.id,
         requestTitle: request.title,
         score: request.fraudScore ?? 70,
-        reason: request.dispute ? 'Solicitud en disputa con evidencia pendiente.' : 'Patron operativo requiere revision.',
+        reason: request.dispute ? 'Solicitud en disputa con evidencia pendiente.' : 'Patron operativo requiere revisión.',
         createdAt: request.createdAt
       }));
     return clone(signals);
@@ -473,7 +473,7 @@ const demoApi = {
   async reviewProviderVerification(providerId: string, status: 'aprobado' | 'rechazado', reason?: string) {
     assertDemoSession();
     const verification = demoVerifications.find((item) => item.providerId === providerId);
-    if (!verification) throw new Error('No encontramos la verificacion.');
+    if (!verification) throw new Error('No encontramos la verificación.');
     verification.status = status;
     verification.rejectionReason = reason;
     verification.reviewedAt = nowIso();
@@ -492,7 +492,7 @@ const demoApi = {
         id: 'demo_kyc_pending',
         severity: 'warning',
         title: 'KYC pendiente',
-        message: `${pendingKyc.length} proveedor(es) esperan revision.`,
+        message: `${pendingKyc.length} proveedor(es) esperan revisión.`,
         source: 'kyc',
         status: 'open',
         createdAt: nowIso()

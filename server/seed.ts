@@ -17,7 +17,7 @@ const isoFromNow = (hours: number) => new Date(now.getTime() + hours * 60 * 60 *
 export const categories: Category[] = [
   {
     id: 'cerrajeria',
-    name: 'Cerrajeria',
+    name: 'Cerrajería',
     slug: 'cerrajeria',
     description: 'Aperturas, cambios de chapa, duplicados y emergencias 24/7.',
     image: '/assets/category-cerrajeria.webp',
@@ -28,7 +28,7 @@ export const categories: Category[] = [
   },
   {
     id: 'plomeria',
-    name: 'Plomeria',
+    name: 'Plomería',
     slug: 'plomeria',
     description: 'Fugas, instalaciones, tinacos, bombas y mantenimiento preventivo.',
     image: '/assets/category-plomeria.webp',
@@ -39,9 +39,9 @@ export const categories: Category[] = [
   },
   {
     id: 'cctv',
-    name: 'Instalacion CCTV',
+    name: 'Instalación CCTV',
     slug: 'cctv',
-    description: 'Camaras, cableado, configuracion remota y seguridad residencial.',
+    description: 'Cámaras, cableado, configuración remota y seguridad residencial.',
     image: '/assets/category-cctv.webp',
     accent: '#7c3aed',
     averagePrice: 4200,
@@ -50,7 +50,7 @@ export const categories: Category[] = [
   },
   {
     id: 'carpinteria',
-    name: 'Carpinteria',
+    name: 'Carpintería',
     slug: 'carpinteria',
     description: 'Muebles a medida, puertas, reparaciones y acabados de madera.',
     image: '/assets/category-carpinteria.webp',
@@ -63,7 +63,7 @@ export const categories: Category[] = [
     id: 'albercas',
     name: 'Limpieza de albercas',
     slug: 'albercas',
-    description: 'Aspirado, quimicos, bombas, filtros y mantenimiento semanal.',
+    description: 'Aspirado, químicos, bombas, filtros y mantenimiento semanal.',
     image: '/assets/category-albercas.webp',
     accent: '#0891b2',
     averagePrice: 1500,
@@ -72,9 +72,9 @@ export const categories: Category[] = [
   },
   {
     id: 'jardineria',
-    name: 'Jardineria',
+    name: 'Jardinería',
     slug: 'jardineria',
-    description: 'Poda, diseno de jardines, riego, limpieza y control de plagas.',
+    description: 'Poda, diseño de jardines, riego, limpieza y control de plagas.',
     image: '/assets/category-jardineria.webp',
     accent: '#16a34a',
     averagePrice: 980,
@@ -83,9 +83,9 @@ export const categories: Category[] = [
   },
   {
     id: 'albanileria',
-    name: 'Albanileria',
+    name: 'Albañilería',
     slug: 'albanileria',
-    description: 'Resanes, pisos, muros, impermeabilizacion y obra menor.',
+    description: 'Resanes, pisos, muros, impermeabilización y obra menor.',
     image: '/assets/category-albanileria.webp',
     accent: '#dc2626',
     averagePrice: 3800,
@@ -94,9 +94,9 @@ export const categories: Category[] = [
   },
   {
     id: 'climatizacion',
-    name: 'Climatizacion',
+    name: 'Climatización',
     slug: 'climatizacion',
-    description: 'Instalacion, carga de gas, limpieza y diagnostico de minisplits.',
+    description: 'Instalación, carga de gas, limpieza y diagnóstico de minisplits.',
     image: '/assets/category-climatizacion.webp',
     accent: '#475569',
     averagePrice: 1800,
@@ -131,7 +131,7 @@ export const providers: Provider[] = [
   {
     id: 'prov_1',
     name: 'Grupo ServiHogar MX',
-    trade: 'Cerrajeria, plomeria y CCTV',
+    trade: 'Cerrajería, plomería y CCTV',
     categoryIds: ['cerrajeria', 'plomeria', 'cctv'],
     verified: true,
     rating: 4.8,
@@ -171,7 +171,7 @@ export const providers: Provider[] = [
   {
     id: 'prov_3',
     name: 'Madera Fina Norte',
-    trade: 'Carpinteria residencial',
+    trade: 'Carpintería residencial',
     categoryIds: ['carpinteria', 'albanileria'],
     verified: true,
     rating: 4.9,
@@ -197,8 +197,8 @@ export const requests: ServiceRequest[] = [
     categoryId: 'cerrajeria',
     clientId: sessions.cliente.id,
     providerId: 'prov_1',
-    address: 'Roma Norte, Cuauhtemoc',
-    city: 'Ciudad de Mexico',
+    address: 'Roma Norte, Cuauhtémoc',
+    city: 'Ciudad de México',
     dateTime: isoFromNow(6),
     budget: 1100,
     distanceKm: 4.2,
@@ -210,28 +210,28 @@ export const requests: ServiceRequest[] = [
       {
         id: 'tl_1',
         status: 'abierta',
-        label: 'Mariana publico la solicitud.',
+        label: 'Mariana publicó la solicitud.',
         actor: 'cliente',
         createdAt: isoFromNow(-18)
       },
       {
         id: 'tl_2',
         status: 'cotizada',
-        label: 'Grupo ServiHogar envio una cotizacion.',
+        label: 'Grupo ServiHogar envió una cotización.',
         actor: 'proveedor',
         createdAt: isoFromNow(-16)
       },
       {
         id: 'tl_3',
         status: 'aceptada',
-        label: 'Mariana acepto la cotizacion y deposito en escrow.',
+        label: 'Mariana aceptó la cotización y depositó en escrow.',
         actor: 'cliente',
         createdAt: isoFromNow(-15)
       },
       {
         id: 'tl_4',
         status: 'en_progreso',
-        label: 'El proveedor inicio el trabajo en sitio.',
+        label: 'El proveedor inició el trabajo en sitio.',
         actor: 'proveedor',
         createdAt: isoFromNow(-1)
       }
@@ -243,21 +243,21 @@ export const requests: ServiceRequest[] = [
     quote: {
       providerId: 'prov_1',
       amount: 1100,
-      message: 'Incluye chapa de seguridad, instalacion y dos duplicados.'
+      message: 'Incluye chapa de seguridad, instalación y dos duplicados.'
     }
   },
   {
     id: 'req_2',
-    title: 'Instalar 4 camaras con acceso desde celular',
+    title: 'Instalar 4 cámaras con acceso desde celular',
     categoryId: 'cctv',
     clientId: sessions.cliente.id,
     address: 'Narvarte Poniente',
-    city: 'Ciudad de Mexico',
+    city: 'Ciudad de México',
     dateTime: isoFromNow(48),
     budget: 5200,
     distanceKm: 6.8,
     status: 'abierta',
-    description: 'Casa de dos niveles. Ya tengo internet de fibra y quiero grabacion continua.',
+    description: 'Casa de dos niveles. Ya tengo internet de fibra y quiero grabación continua.',
     location: { lat: 19.394, lng: -99.1562 },
     createdAt: isoFromNow(-4),
     timeline: [
@@ -280,12 +280,12 @@ export const requests: ServiceRequest[] = [
     categoryId: 'albercas',
     clientId: 'usr_cliente_2',
     address: 'Jardines del Pedregal',
-    city: 'Ciudad de Mexico',
+    city: 'Ciudad de México',
     dateTime: isoFromNow(24),
     budget: 1700,
     distanceKm: 11.4,
     status: 'abierta',
-    description: 'Alberca de 8x4 m con agua turbia. Requiero aspirado y balance de quimicos.',
+    description: 'Alberca de 8x4 m con agua turbia. Requiero aspirado y balance de químicos.',
     location: { lat: 19.3116, lng: -99.2083 },
     createdAt: isoFromNow(-6),
     timeline: [
@@ -309,12 +309,12 @@ export const requests: ServiceRequest[] = [
     clientId: sessions.cliente.id,
     providerId: 'prov_3',
     address: 'Del Valle Centro',
-    city: 'Ciudad de Mexico',
+    city: 'Ciudad de México',
     dateTime: isoFromNow(-24),
     budget: 2400,
     distanceKm: 5.3,
     status: 'cerrada',
-    description: 'La humedad dano una puerta y el fondo del gabinete.',
+    description: 'La humedad dañó una puerta y el fondo del gabinete.',
     location: { lat: 19.3867, lng: -99.162 },
     createdAt: isoFromNow(-96),
     timeline: [
@@ -335,7 +335,7 @@ export const requests: ServiceRequest[] = [
       {
         id: 'tl_9',
         status: 'cerrada',
-        label: 'Trabajo cerrado con liberacion de pago.',
+        label: 'Trabajo cerrado con liberación de pago.',
         actor: 'cliente',
         createdAt: isoFromNow(-20)
       }
@@ -356,26 +356,26 @@ export const requests: ServiceRequest[] = [
     clientId: 'usr_cliente_3',
     providerId: 'prov_1',
     address: 'Condesa',
-    city: 'Ciudad de Mexico',
+    city: 'Ciudad de México',
     dateTime: isoFromNow(2),
     budget: 1450,
     distanceKm: 3.5,
     status: 'disputa',
-    description: 'La fuga regreso despues de la visita. Solicito revision o reembolso parcial.',
+    description: 'La fuga regresó después de la visita. Solicito revisión o reembolso parcial.',
     location: { lat: 19.414, lng: -99.174 },
     createdAt: isoFromNow(-48),
     timeline: [
       {
         id: 'tl_10',
         status: 'abierta',
-        label: 'Solicitud publicada por emergencia de plomeria.',
+        label: 'Solicitud publicada por emergencia de plomería.',
         actor: 'cliente',
         createdAt: isoFromNow(-48)
       },
       {
         id: 'tl_11',
         status: 'disputa',
-        label: 'Cliente abrio disputa con evidencia fotografica.',
+        label: 'Cliente abrió disputa con evidencia fotográfica.',
         actor: 'cliente',
         createdAt: isoFromNow(-3)
       }
@@ -385,7 +385,7 @@ export const requests: ServiceRequest[] = [
       status: 'retenido'
     },
     dispute: {
-      reason: 'La fuga continua despues de la reparacion.',
+      reason: 'La fuga continúa después de la reparación.',
       status: 'abierta'
     }
   }
@@ -412,7 +412,7 @@ export const chatMessages: ChatMessage[] = [
     id: 'msg_3',
     requestId: 'req_5',
     senderRole: 'admin',
-    senderName: 'Soporte App Proveedores',
+    senderName: 'Soporte ConectaPro',
     message: 'Estamos revisando la evidencia y contactaremos al proveedor hoy.',
     createdAt: isoFromNow(-1)
   }
@@ -429,14 +429,14 @@ export const notifications: NotificationEvent[] = [
   {
     id: 'not_2',
     title: 'Pago retenido',
-    message: 'Tu pago de cerrajeria esta protegido hasta cerrar el servicio.',
+    message: 'Tu pago de cerrajería está protegido hasta cerrar el servicio.',
     role: 'cliente',
     createdAt: isoFromNow(-15)
   },
   {
     id: 'not_3',
     title: 'Disputa abierta',
-    message: 'Una solicitud de plomeria requiere resolucion del equipo admin.',
+    message: 'Una solicitud de plomería requiere resolución del equipo admin.',
     role: 'admin',
     createdAt: isoFromNow(-3)
   }
