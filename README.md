@@ -92,10 +92,13 @@ Backend/scripts/Functions, nunca en frontend:
 
 - `FIREBASE_PROJECT_ID`
 - `FIREBASE_SERVICE_ACCOUNT_JSON` solo para seed/scripts fuera de Google Cloud
+- `APP_ORIGIN`
+- `PAYMENT_PROVIDER`: `local`, `stripe` o `mercadopago`
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `MERCADOPAGO_ACCESS_TOKEN`
 - `MERCADOPAGO_WEBHOOK_SECRET`
+- `MERCADOPAGO_WEBHOOK_URL`
 - `SENTRY_DSN` opcional
 - `SENTRY_ENVIRONMENT` opcional
 
@@ -130,7 +133,7 @@ firebase functions:secrets:set MERCADOPAGO_ACCESS_TOKEN
 firebase functions:secrets:set MERCADOPAGO_WEBHOOK_SECRET
 ```
 
-En Functions v2, configura también los params `APP_ORIGIN` y `PAYMENT_PROVIDER` durante el deploy o con el archivo/env de tu entorno.
+En Functions v2, configura también los params `APP_ORIGIN=https://conectapro-mx.vercel.app`, `PAYMENT_PROVIDER=mercadopago` y `MERCADOPAGO_WEBHOOK_URL=https://us-central1-chambeale-708cb.cloudfunctions.net/mercadoPagoWebhook` durante el deploy o con el archivo/env de tu entorno.
 
 9. Ejecuta `npm run firebase:seed` para demo users/categorías/solicitudes si necesitas datos iniciales.
 10. En Vercel, redeploy de frontend después de configurar env vars.
@@ -158,13 +161,34 @@ El frontend conserva el concepto de escrow, pero en modo Firebase no marca pagos
 - `mercadoPagoWebhook`
 - `setUserRole`
 
-Los webhooks incluidos son una base de producción: reciben eventos, escriben auditoría y dejan el punto claro para validar firmas y actualizar `payments`/`serviceRequests` con lógica específica de Stripe o Mercado Pago.
+Los webhooks incluidos validan firma, reciben eventos, escriben auditoría y actualizan `payments`, escrow de `serviceRequests` y suscripciones de proveedor desde lógica confiable. El cliente solo crea el checkout; no puede marcar pagos como aprobados.
 
 Webhook Stripe configurado para Firebase Functions:
 
 - `https://us-central1-chambeale-708cb.cloudfunctions.net/stripeWebhook`
 - Eventos: `checkout.session.completed`, `payment_intent.succeeded`
 - El signing secret debe vivir en `STRIPE_WEBHOOK_SECRET` dentro de Firebase Secret Manager.
+
+### Mercado Pago
+
+Mercado Pago está cableado para Checkout Pro desde Cloud Functions:
+
+- Escrow de solicitudes: `/payments/escrow` crea una preferencia de pago.
+- Suscripciones de proveedor: `/payments/subscription` crea una preferencia y solo activa el plan cuando el webhook confirma `approved`.
+- Webhook público: `https://us-central1-chambeale-708cb.cloudfunctions.net/mercadoPagoWebhook`
+- Eventos esperados en Mercado Pago: pagos/notificaciones de `payment`.
+- Secretos: `MERCADOPAGO_ACCESS_TOKEN` y `MERCADOPAGO_WEBHOOK_SECRET` deben vivir en Firebase Secret Manager, nunca en Vercel ni en código frontend.
+- Documentación oficial útil: [notificaciones de pago](https://www.mercadopago.com.mx/developers/es/docs/checkout-pro/payment-notifications) y [preferencias de Checkout Pro](https://www.mercadopago.com.mx/developers/en/docs/checkout-pro/checkout-customization/preferences).
+
+Checklist de activación:
+
+1. En Mercado Pago Developers, usa una aplicación de producción o sandbox y copia el Access Token del entorno correcto.
+2. En Firebase Console, ve a Secret Manager y crea/actualiza `MERCADOPAGO_ACCESS_TOKEN`.
+3. En Mercado Pago Developers, registra el webhook `https://us-central1-chambeale-708cb.cloudfunctions.net/mercadoPagoWebhook`, activa eventos de pago y copia la clave secreta de webhook.
+4. En Firebase Secret Manager, crea/actualiza `MERCADOPAGO_WEBHOOK_SECRET`.
+5. Configura Functions con `PAYMENT_PROVIDER=mercadopago` y `APP_ORIGIN=https://conectapro-mx.vercel.app`.
+6. Despliega Functions con `firebase deploy --only functions`.
+7. Haz un pago sandbox y confirma en Firestore que `payments/{paymentId}.status` pase a `paid` y que el escrow o la suscripción se actualicen.
 
 ## Migracion Desde SQLite/Postgres
 
@@ -220,7 +244,8 @@ Smoke test posterior a deploy:
 
 ## Limitaciones Conocidas
 
-- Los webhooks de Stripe/Mercado Pago ya validan firma y actualizan escrow cuando el proveedor confirma un pago aprobado. Falta probarlos con eventos reales de cada cuenta antes de abrir tráfico productivo.
+- Los webhooks de Stripe/Mercado Pago ya validan firma y actualizan escrow/suscripciones cuando el proveedor confirma un pago aprobado. Falta probarlos con eventos reales de cada cuenta antes de abrir tráfico productivo.
+- Mercado Pago queda listo en código, pero no queda activo en producción hasta guardar `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_WEBHOOK_SECRET` y `PAYMENT_PROVIDER=mercadopago` en Firebase Functions.
 - Falta rotar la secret key de Stripe desde el Dashboard/Workbench de Stripe y actualizar `STRIPE_SECRET_KEY` en Firebase Secret Manager.
 - `conectapro.vercel.app` está ocupado fuera del scope actual de Vercel; producción usa `conectapro-mx.vercel.app` hasta liberar ese alias exacto o configurar dominio propio.
 - La suite `test:rules` usa `@firebase/rules-unit-testing`, pero necesita Java/Firebase Emulator Suite instalado para correr localmente o en CI.

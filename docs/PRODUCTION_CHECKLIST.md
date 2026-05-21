@@ -29,6 +29,7 @@
 - [x] Vista pública de Legal y confianza con lineamientos de privacidad, pagos, KYC y disputas
 - [ ] Rotar secretos reales en el proveedor de hosting y confirmar que `npm run prod:doctor:live` pase sin skips
 - [ ] Provisionar dominio real, HTTPS y staging activo en la infraestructura final
+- [ ] Guardar secretos reales de Mercado Pago en Firebase Secret Manager y activar `PAYMENT_PROVIDER=mercadopago`
 - [ ] Probar webhooks reales con cuentas Stripe/Mercado Pago y URLs públicas del entorno final
 - [ ] Configurar alertas, retención y tableros en el proveedor elegido de observabilidad
 - [ ] Ejecutar pruebas de carga y seguridad formales con el volumen esperado de producción

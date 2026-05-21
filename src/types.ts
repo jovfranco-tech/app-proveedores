@@ -150,6 +150,7 @@ export interface PaymentRecord {
   requestId?: string;
   providerId?: string;
   userId?: string;
+  plan?: Provider['subscription']['plan'] | string | null;
   provider: 'local' | 'stripe' | 'mercadopago';
   providerRef?: string;
   amount: number;

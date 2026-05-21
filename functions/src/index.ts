@@ -9,7 +9,7 @@ import Stripe from 'stripe';
 
 initializeApp();
 
-const appOrigin = defineString('APP_ORIGIN', { default: 'https://app-proveedores.vercel.app' });
+const appOrigin = defineString('APP_ORIGIN', { default: 'https://conectapro-mx.vercel.app' });
 const paymentProvider = defineString('PAYMENT_PROVIDER', { default: 'local' });
 const sentryDsn = defineString('SENTRY_DSN', { default: '' });
 const sentryEnvironment = defineString('SENTRY_ENVIRONMENT', { default: 'production' });
@@ -17,6 +17,7 @@ const stripeSecretKey = defineSecret('STRIPE_SECRET_KEY');
 const stripeWebhookSecret = defineSecret('STRIPE_WEBHOOK_SECRET');
 const mercadoPagoAccessToken = defineSecret('MERCADOPAGO_ACCESS_TOKEN');
 const mercadoPagoWebhookSecret = defineSecret('MERCADOPAGO_WEBHOOK_SECRET');
+const mercadoPagoWebhookUrl = defineString('MERCADOPAGO_WEBHOOK_URL', { default: 'https://us-central1-chambeale-708cb.cloudfunctions.net/mercadoPagoWebhook' });
 
 type Role = 'cliente' | 'proveedor' | 'admin';
 type EscrowAction = 'pay' | 'release' | 'refund';
@@ -60,6 +61,7 @@ interface PaymentRecord {
   requestId?: string;
   providerId?: string | null;
   userId?: string;
+  plan?: string | null;
   provider: 'local' | 'stripe' | 'mercadopago';
   providerRef?: string;
   amount: number;
@@ -233,34 +235,45 @@ async function createStripeCheckout(actorUid: string, requestId: string, service
   return payment;
 }
 
-async function createMercadoPagoCheckout(actorUid: string, requestId: string, serviceRequest: ServiceRequestData, amount?: number) {
+async function createMercadoPagoPreference(input: {
+  actorUid: string;
+  kind: PaymentRecord['kind'];
+  title: string;
+  amount: number;
+  requestId?: string;
+  providerId?: string | null;
+  plan?: string | null;
+}) {
   const accessToken = mercadoPagoAccessToken.value();
-  if (!accessToken) throw new Error('MERCADOPAGO_ACCESS_TOKEN no esta configurado.');
+  if (!accessToken) throw new Error('MERCADOPAGO_ACCESS_TOKEN no está configurado.');
 
   const db = getFirestore();
   const paymentRef = db.collection('payments').doc();
-  const total = paymentAmount(serviceRequest, amount);
   const preference = {
     items: [
       {
-        title: `Escrow App Proveedores ${requestId}`,
+        title: input.title,
         quantity: 1,
-        unit_price: total,
+        unit_price: input.amount,
         currency_id: 'MXN'
       }
     ],
+    notification_url: mercadoPagoWebhookUrl.value(),
     back_urls: {
-      success: `${appOrigin.value()}/?payment=success&requestId=${encodeURIComponent(requestId)}`,
-      failure: `${appOrigin.value()}/?payment=failure&requestId=${encodeURIComponent(requestId)}`,
-      pending: `${appOrigin.value()}/?payment=pending&requestId=${encodeURIComponent(requestId)}`
+      success: `${appOrigin.value()}/?payment=success&payment_id=${encodeURIComponent(paymentRef.id)}`,
+      failure: `${appOrigin.value()}/?payment=failure&payment_id=${encodeURIComponent(paymentRef.id)}`,
+      pending: `${appOrigin.value()}/?payment=pending&payment_id=${encodeURIComponent(paymentRef.id)}`
     },
     metadata: {
       payment_id: paymentRef.id,
-      request_id: requestId,
-      user_id: actorUid,
-      provider_id: serviceRequest.providerId ?? ''
+      request_id: input.requestId ?? '',
+      user_id: input.actorUid,
+      provider_id: input.providerId ?? '',
+      kind: input.kind,
+      plan: input.plan ?? ''
     },
-    external_reference: paymentRef.id
+    external_reference: paymentRef.id,
+    auto_return: 'approved'
   };
 
   const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
@@ -276,16 +289,18 @@ async function createMercadoPagoCheckout(actorUid: string, requestId: string, se
 
   const payment: PaymentRecord = {
     id: paymentRef.id,
-    kind: 'escrow',
-    requestId,
-    providerId: serviceRequest.providerId ?? null,
-    userId: actorUid,
+    kind: input.kind,
+    requestId: input.requestId,
+    providerId: input.providerId ?? null,
+    userId: input.actorUid,
+    plan: input.plan ?? null,
     provider: 'mercadopago',
     providerRef: payload.id,
-    amount: total,
+    amount: input.amount,
     currency: 'MXN',
     status: 'requires_action',
     checkoutUrl: payload.init_point ?? payload.sandbox_init_point ?? null,
+    rawPayload: payload,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -293,7 +308,61 @@ async function createMercadoPagoCheckout(actorUid: string, requestId: string, se
   return payment;
 }
 
-async function markEscrowPaidFromTrustedProvider(paymentId: string, providerRef: string, rawPayload: unknown) {
+async function createMercadoPagoCheckout(actorUid: string, requestId: string, serviceRequest: ServiceRequestData, amount?: number) {
+  return createMercadoPagoPreference({
+    actorUid,
+    kind: 'escrow',
+    title: `Escrow ConectaPro ${requestId}`,
+    amount: paymentAmount(serviceRequest, amount),
+    requestId,
+    providerId: serviceRequest.providerId ?? null
+  });
+}
+
+async function createMercadoPagoSubscriptionCheckout(actorUid: string, providerId: string, plan: string, price: number) {
+  return createMercadoPagoPreference({
+    actorUid,
+    kind: 'subscription',
+    title: `Suscripción ConectaPro ${plan}`,
+    amount: price,
+    providerId,
+    plan
+  });
+}
+
+async function createLocalSubscriptionPayment(actorUid: string, providerId: string, plan: string, price: number) {
+  const db = getFirestore();
+  const paymentRef = db.collection('payments').doc();
+  const providerRef = db.collection('providers').doc(providerId);
+  const payment: PaymentRecord = {
+    id: paymentRef.id,
+    kind: 'subscription',
+    providerId,
+    userId: actorUid,
+    plan,
+    provider: 'local',
+    amount: price,
+    currency: 'MXN',
+    status: 'paid',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  await db.runTransaction(async (transaction) => {
+    transaction.set(paymentRef, payment);
+    transaction.set(providerRef, {
+      subscription: {
+        plan,
+        status: 'activa',
+        renewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        price
+      },
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  });
+  return payment;
+}
+
+async function markPaymentPaidFromTrustedProvider(paymentId: string, providerRef: string, rawPayload: unknown) {
   const db = getFirestore();
   const paymentRef = db.collection('payments').doc(paymentId);
 
@@ -301,11 +370,20 @@ async function markEscrowPaidFromTrustedProvider(paymentId: string, providerRef:
     const paymentSnap = await transaction.get(paymentRef);
     if (!paymentSnap.exists) throw new Error('Pago no encontrado.');
     const payment = paymentSnap.data() as PaymentRecord;
-    if (!payment.requestId) throw new Error('Pago sin solicitud asociada.');
+    const requestRef = payment.kind === 'escrow' && payment.requestId ? db.collection('serviceRequests').doc(payment.requestId) : undefined;
+    const providerRefDoc = payment.kind === 'subscription' && payment.providerId ? db.collection('providers').doc(payment.providerId) : undefined;
 
-    const requestRef = db.collection('serviceRequests').doc(payment.requestId);
-    const requestSnap = await transaction.get(requestRef);
-    if (!requestSnap.exists) throw new Error('Solicitud no encontrada para pago.');
+    if (payment.kind === 'escrow') {
+      if (!requestRef) throw new Error('Pago sin solicitud asociada.');
+      const requestSnap = await transaction.get(requestRef);
+      if (!requestSnap.exists) throw new Error('Solicitud no encontrada para pago.');
+    }
+
+    if (payment.kind === 'subscription') {
+      if (!providerRefDoc) throw new Error('Pago sin proveedor asociado.');
+      const providerSnap = await transaction.get(providerRefDoc);
+      if (!providerSnap.exists) throw new Error('Proveedor no encontrado para pago.');
+    }
 
     const updatedPayment: PaymentRecord = {
       ...payment,
@@ -316,14 +394,39 @@ async function markEscrowPaidFromTrustedProvider(paymentId: string, providerRef:
     };
 
     transaction.set(paymentRef, updatedPayment, { merge: true });
-    transaction.update(requestRef, {
-      escrow: { amount: payment.amount, status: 'retenido' },
-      status: 'aceptada',
-      updatedAt: new Date().toISOString()
-    });
+
+    if (payment.kind === 'escrow') {
+      transaction.update(requestRef!, {
+        escrow: { amount: payment.amount, status: 'retenido' },
+        status: 'aceptada',
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    if (payment.kind === 'subscription') {
+      transaction.set(providerRefDoc!, {
+        subscription: {
+          plan: payment.plan ?? 'Pro',
+          status: 'activa',
+          renewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+          price: payment.amount
+        },
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    }
 
     return updatedPayment;
   });
+}
+
+async function markPaymentStatusFromTrustedProvider(paymentId: string, status: PaymentStatus, providerRef: string, rawPayload: unknown) {
+  const db = getFirestore();
+  await db.collection('payments').doc(paymentId).set({
+    providerRef,
+    status,
+    rawPayload,
+    updatedAt: new Date().toISOString()
+  }, { merge: true });
 }
 
 function parseMercadoPagoSignature(signatureHeader: string) {
@@ -366,7 +469,7 @@ export function verifyMercadoPagoSignature(input: {
 
 async function fetchMercadoPagoPayment(paymentId: string) {
   const accessToken = mercadoPagoAccessToken.value();
-  if (!accessToken) throw new Error('MERCADOPAGO_ACCESS_TOKEN no esta configurado.');
+  if (!accessToken) throw new Error('MERCADOPAGO_ACCESS_TOKEN no está configurado.');
   const response = await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(paymentId)}`, {
     headers: { Authorization: `Bearer ${accessToken}` }
   });
@@ -377,6 +480,8 @@ async function fetchMercadoPagoPayment(paymentId: string) {
     metadata?: {
       payment_id?: string;
       request_id?: string;
+      kind?: string;
+      plan?: string;
     };
     message?: string;
   };
@@ -460,7 +565,7 @@ export const stripeWebhook = onRequest({ secrets: [stripeSecretKey, stripeWebhoo
     }
 
     if (paymentId) {
-      await markEscrowPaidFromTrustedProvider(paymentId, providerRef, event);
+      await markPaymentPaidFromTrustedProvider(paymentId, providerRef, event);
     }
 
     await writeAudit({ action: 'stripe.webhook.verified', entityType: 'payment', entityId: paymentId, metadata: { eventId: event.id, eventType: event.type } });
@@ -474,21 +579,26 @@ export const stripeWebhook = onRequest({ secrets: [stripeSecretKey, stripeWebhoo
 
 export const mercadoPagoWebhook = onRequest({ secrets: [mercadoPagoAccessToken, mercadoPagoWebhookSecret] }, async (req, res) => {
   try {
+    const body = req.body as { data?: { id?: string }; id?: string; topic?: string; type?: string } | undefined;
+    const dataId = firstQueryString(req.query['data.id']) ?? firstQueryString(req.query.id) ?? body?.data?.id ?? body?.id;
     const verified = verifyMercadoPagoSignature({
-      dataId: firstQueryString(req.query['data.id']),
+      dataId,
       xRequestId: req.get('x-request-id') ?? undefined,
       xSignature: req.get('x-signature') ?? undefined,
       secret: mercadoPagoWebhookSecret.value()
     });
     if (!verified) return json(res, 400, { message: 'Firma Mercado Pago invalida.' });
 
-    const dataId = firstQueryString(req.query['data.id']);
     if (!dataId) return json(res, 400, { message: 'Falta data.id.' });
 
     const mercadoPagoPayment = await fetchMercadoPagoPayment(dataId);
     const paymentId = mercadoPagoPayment.metadata?.payment_id ?? mercadoPagoPayment.external_reference;
     if (paymentId && mercadoPagoPayment.status === 'approved') {
-      await markEscrowPaidFromTrustedProvider(paymentId, String(mercadoPagoPayment.id ?? dataId), mercadoPagoPayment);
+      await markPaymentPaidFromTrustedProvider(paymentId, String(mercadoPagoPayment.id ?? dataId), mercadoPagoPayment);
+    } else if (paymentId && ['rejected', 'cancelled', 'charged_back'].includes(String(mercadoPagoPayment.status))) {
+      await markPaymentStatusFromTrustedProvider(paymentId, 'failed', String(mercadoPagoPayment.id ?? dataId), mercadoPagoPayment);
+    } else if (paymentId && ['pending', 'in_process', 'authorized'].includes(String(mercadoPagoPayment.status))) {
+      await markPaymentStatusFromTrustedProvider(paymentId, 'pending', String(mercadoPagoPayment.id ?? dataId), mercadoPagoPayment);
     }
 
     await writeAudit({ action: 'mercadopago.webhook.verified', entityType: 'payment', entityId: paymentId, metadata: { dataId, status: mercadoPagoPayment.status } });
@@ -537,34 +647,26 @@ export const api = onRequest({ secrets: [stripeSecretKey, mercadoPagoAccessToken
     if (req.method === 'POST' && path === '/payments/subscription') {
       const { providerId, plan, price } = req.body as { providerId?: string; plan?: string; price?: number };
       if (!providerId || !plan || !price) return json(res, 400, { message: 'Payload invalido.' });
-      const paymentRef = db.collection('payments').doc();
       const providerRef = db.collection('providers').doc(providerId);
-      const payment: PaymentRecord = {
-        id: paymentRef.id,
-        kind: 'subscription',
-        providerId,
-        userId: actor.uid,
-        provider: 'local',
-        amount: price,
-        currency: 'MXN',
-        status: 'paid',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      await db.runTransaction(async (transaction) => {
-        transaction.set(paymentRef, payment);
-        transaction.set(providerRef, {
-          subscription: {
-            plan,
-            status: 'activa',
-            renewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-            price
-          },
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-      });
+      const providerSnapBeforePay = await providerRef.get();
+      if (!providerSnapBeforePay.exists) return json(res, 404, { message: 'Proveedor no encontrado.' });
+      const ownerUid = providerSnapBeforePay.get('ownerUid');
+      const isAdmin = actor.admin === true || actorRole === 'admin';
+      if (ownerUid !== actor.uid && actor.providerId !== providerId && !isAdmin) return json(res, 403, { message: 'Solo puedes pagar la suscripcion de tu perfil de proveedor.' });
+
+      const provider = paymentProvider.value();
+      const payment = provider === 'mercadopago'
+        ? await createMercadoPagoSubscriptionCheckout(actor.uid, providerId, plan, price)
+        : await createLocalSubscriptionPayment(actor.uid, providerId, plan, price);
       const providerSnap = await providerRef.get();
-      await writeAudit({ actorUserId: actor.uid, actorRole, action: 'subscription.paid', entityType: 'provider', entityId: providerId, metadata: { paymentId: payment.id } });
+      await writeAudit({
+        actorUserId: actor.uid,
+        actorRole,
+        action: provider === 'mercadopago' ? 'subscription.checkout.created' : 'subscription.paid',
+        entityType: 'provider',
+        entityId: providerId,
+        metadata: { paymentId: payment.id, provider: payment.provider }
+      });
       return json(res, 200, { data: { payment, provider: { id: providerSnap.id, ...providerSnap.data() } } });
     }
 
