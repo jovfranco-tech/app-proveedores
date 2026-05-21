@@ -178,6 +178,7 @@ a {
 .top-nav button,
 .segmented button,
 .ghost-button,
+.ghost-on-dark-button,
 .secondary-button,
 .primary-button,
 .danger-button {
@@ -314,7 +315,8 @@ main {
 .primary-button,
 .secondary-button,
 .danger-button,
-.ghost-button {
+.ghost-button,
+.ghost-on-dark-button {
   min-width: fit-content;
   padding: 0.75rem 1rem;
   border: 1px solid transparent;
@@ -340,6 +342,18 @@ main {
 .ghost-button:hover {
   border-color: #a8b7b1;
   background: #f9fbfa;
+}
+
+.ghost-on-dark-button {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.48);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+}
+
+.ghost-on-dark-button:hover {
+  border-color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .danger-button {
@@ -1210,6 +1224,51 @@ textarea {
   margin-top: var(--space-4);
 }
 
+.legal-hero {
+  align-items: flex-start;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  padding: var(--space-5);
+  background:
+    radial-gradient(circle at 90% 10%, rgba(20, 184, 166, 0.18), transparent 30%),
+    linear-gradient(135deg, #ffffff 0%, #eefaf7 100%);
+  box-shadow: var(--shadow-soft);
+}
+
+.legal-hero p {
+  max-width: 76ch;
+  margin-bottom: 0;
+}
+
+.legal-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.legal-grid-wide {
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+}
+
+.legal-card {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+}
+
+.legal-card h3,
+.legal-card p {
+  margin: 0;
+}
+
+.legal-checklist {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
 .ops-list {
   display: grid;
   gap: var(--space-3);
@@ -1348,7 +1407,9 @@ textarea {
   .provider-layout,
   .admin-grid,
   .detail-grid,
-  .insights-layout {
+  .insights-layout,
+  .legal-grid,
+  .legal-grid-wide {
     grid-template-columns: 1fr;
   }
 
@@ -1411,6 +1472,10 @@ textarea {
   .section-heading > *,
   .error-banner > * {
     width: 100%;
+  }
+
+  .legal-hero {
+    padding: var(--space-4);
   }
 
   .content-section,

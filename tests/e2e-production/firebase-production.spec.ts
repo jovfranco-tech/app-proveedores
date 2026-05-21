@@ -30,6 +30,10 @@ test('catálogo y mapa público cargan desde Firebase sin sesión', async ({ pag
   await expect(page.locator('.osm-map, .mapbox-map')).toBeVisible();
   await expect(page.locator('.osm-marker, .mapbox-marker')).toHaveCount(5);
   await expect(page.getByText(/permission-denied/i)).toHaveCount(0);
+
+  await page.getByRole('button', { name: /Legal/i }).click();
+  await expect(page.getByRole('heading', { name: /Reglas claras/i })).toBeVisible();
+  await expect(page.getByText(/Pagos protegidos y escrow/i)).toBeVisible();
 });
 
 test('los tres roles demo inician sesión y ven su dashboard', async ({ page }) => {

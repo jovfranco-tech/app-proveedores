@@ -22,6 +22,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   Star,
+  FileText,
   UserPlus,
   UsersRound,
   Wrench
@@ -53,7 +54,7 @@ import type {
   UserSession
 } from './types';
 
-type View = 'home' | 'catalogo' | 'cliente' | 'proveedor' | 'detalle' | 'admin' | 'mapa';
+type View = 'home' | 'catalogo' | 'cliente' | 'proveedor' | 'detalle' | 'admin' | 'mapa' | 'legal';
 type Toast = { type: 'success' | 'error' | 'info'; message: string };
 
 const roleLabels: Record<Role, string> = {
@@ -135,7 +136,7 @@ function routeForRole(role: Role): View {
 }
 
 function isViewAllowed(session: UserSession | null, view: View) {
-  if (!session) return view === 'home' || view === 'catalogo' || view === 'mapa';
+  if (!session) return view === 'home' || view === 'catalogo' || view === 'mapa' || view === 'legal';
   if (view === 'cliente') return session.role === 'cliente';
   if (view === 'proveedor') return session.role === 'proveedor';
   if (view === 'admin') return session.role === 'admin';
@@ -198,7 +199,8 @@ function AppHeader({
     { view: 'cliente', label: 'Cliente', icon: UsersRound, roles: ['cliente'] },
     { view: 'proveedor', label: 'Proveedor', icon: ShieldCheck, roles: ['proveedor'] },
     { view: 'admin', label: 'Admin', icon: Activity, roles: ['admin'] },
-    { view: 'mapa', label: 'Mapa', icon: Map }
+    { view: 'mapa', label: 'Mapa', icon: Map },
+    { view: 'legal', label: 'Legal', icon: FileText }
   ];
 
   return (
@@ -282,6 +284,9 @@ function HomeView({
             <button className="secondary-button" type="button" onClick={() => onNavigate('catalogo')}>
               Ver categorías
               <ChevronRight aria-hidden="true" size={18} />
+            </button>
+            <button className="ghost-on-dark-button" type="button" onClick={() => onNavigate('legal')}>
+              Legal y confianza
             </button>
           </div>
           <dl className="hero-stats" aria-label="Indicadores operativos">
@@ -506,6 +511,85 @@ function CatalogView({
             </div>
           </article>
         ))}
+      </div>
+    </section>
+  );
+}
+
+function LegalTrustView() {
+  const policies = [
+    {
+      title: 'Privacidad y datos personales',
+      text:
+        'ConectaPro debe tratar datos de clientes y proveedores conforme al aviso de privacidad aplicable en México. Los documentos KYC y evidencias se usan para verificar identidad, resolver disputas y prevenir fraude.'
+    },
+    {
+      title: 'Pagos protegidos y escrow',
+      text:
+        'El cliente no debe pagar fuera de la plataforma cuando exista checkout activo. El estado de pago se confirma por backend y webhooks; la UI nunca debe marcar un pago como liquidado por sí sola.'
+    },
+    {
+      title: 'Verificación de proveedores',
+      text:
+        'Los proveedores pueden enviar identificación, RFC/comprobante y notas. La aprobación queda reservada a admin y debe considerar documentos completos, consistencia fiscal y señales antifraude.'
+    },
+    {
+      title: 'Disputas y reembolsos',
+      text:
+        'Toda disputa debe conservar evidencia, mensajes y auditoría. Operaciones puede liberar pago o reembolsar según evidencia, tiempos de respuesta y cumplimiento del servicio.'
+    }
+  ];
+
+  const operatingRules = [
+    'No compartas contraseñas, llaves de API ni secretos de pago por chat o documentos.',
+    'No solicites pagos directos si el trabajo está protegido por escrow.',
+    'Los documentos de KYC deben revisarse solo desde cuentas admin autorizadas.',
+    'Cualquier cambio en pagos, reembolsos o roles debe pasar por backend o Cloud Functions.',
+    'Si detectas actividad sospechosa, abre disputa y conserva evidencia antes de cerrar el caso.'
+  ];
+
+  return (
+    <section className="content-section legal-section" aria-labelledby="legal-title">
+      <div className="section-heading legal-hero">
+        <div>
+          <p className="section-kicker">Legal y confianza</p>
+          <h2 id="legal-title">Reglas claras para operar ConectaPro con seguridad</h2>
+          <p>
+            Esta sección resume criterios operativos para clientes, proveedores y admins. No sustituye asesoría legal, pero deja
+            explícitos los límites de pagos, KYC, privacidad y disputas dentro del producto.
+          </p>
+        </div>
+        <ShieldCheck aria-hidden="true" size={42} />
+      </div>
+
+      <div className="legal-grid">
+        {policies.map((policy) => (
+          <article className="workspace-panel legal-card" key={policy.title}>
+            <h3>{policy.title}</h3>
+            <p>{policy.text}</p>
+          </article>
+        ))}
+      </div>
+
+      <div className="legal-grid legal-grid-wide">
+        <section className="workspace-panel">
+          <h3>Checklist de operación segura</h3>
+          <ol className="legal-checklist">
+            {operatingRules.map((rule) => (
+              <li key={rule}>{rule}</li>
+            ))}
+          </ol>
+        </section>
+        <section className="workspace-panel">
+          <h3>Documentos que faltan para producción formal</h3>
+          <p>
+            Antes de abrir operación comercial a gran escala, conviene que un abogado revise y publique versiones finales de
+            términos y condiciones, aviso de privacidad, política de cancelación, política de reembolsos y consentimiento KYC.
+          </p>
+          <p className="muted">
+            Recomendación: conectar un dominio propio y enlazar estos documentos en footer, emails transaccionales y checkout.
+          </p>
+        </section>
       </div>
     </section>
   );
@@ -2006,6 +2090,7 @@ export function App() {
           />
         ) : null}
         {!loading && view === 'catalogo' ? <CatalogView categories={categories} session={session} onNavigate={handleNavigate} /> : null}
+        {!loading && view === 'legal' ? <LegalTrustView /> : null}
         {!loading && roleSpecificView}
         {!loading && view === 'detalle' && session ? (
           <DetailView

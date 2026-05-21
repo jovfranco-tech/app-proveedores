@@ -5,7 +5,11 @@ test('home y creación de solicitud cliente', async ({ page }) => {
   await page.goto('/');
 
   await expect(page.getByRole('heading', { name: 'ConectaPro' })).toBeVisible();
-  await page.getByRole('button', { name: /Cliente/i }).first().click();
+  await page.getByRole('button', { name: 'Legal y confianza' }).click();
+  await expect(page.getByRole('heading', { name: /Reglas claras/i })).toBeVisible();
+  await page.getByRole('button', { name: /Inicio/i }).click();
+  await page.getByLabel(/Selecciona rol/i).getByRole('button', { name: 'Cliente' }).click();
+  await page.getByRole('button', { name: 'Enviar formulario para entrar' }).click();
   await expect(page.getByRole('heading', { name: /Publica solicitudes/i })).toBeVisible();
 
   await page.getByLabel(/Título del trabajo/i).fill(title);
@@ -22,7 +26,7 @@ test('proveedor ve solicitudes abiertas con suscripción', async ({ page }) => {
   await page.goto('/');
 
   await page.getByRole('button', { name: 'Proveedor' }).click();
-  await page.getByRole('button', { name: 'Entrar' }).click();
+  await page.getByRole('button', { name: 'Enviar formulario para entrar' }).click();
 
   await expect(page.getByRole('heading', { name: 'Solicitudes abiertas', exact: true })).toBeVisible();
   await expect(page.getByText(/Plan Pro/i)).toBeVisible();

@@ -1,33 +1,35 @@
-# Checklist Listo Para Produccion
+# Checklist Listo Para Producción
 
 - [x] Interfaz responsive para 360px, 768px y 1280px+
-- [x] Copia real en español de Mexico, sin lorem ipsum
-- [x] API real para categorias, solicitudes, chat, escrow, proveedores, metricas y SSE
-- [x] Auth JWT con refresh cookie httpOnly y RBAC en servidor
-- [x] SQLite persistente con migracion, seed idempotente y script de backup
+- [x] Copia real en español de México, sin lorem ipsum
+- [x] API real para categorías, solicitudes, chat, escrow, proveedores, métricas y SSE
+- [x] Auth JWT con refresh cookie `httpOnly` y RBAC en servidor
+- [x] SQLite persistente con migración, seed idempotente y script de backup
 - [x] Pasarela de pagos configurable: local, Stripe Checkout y Mercado Pago Checkout Pro
-- [x] Webhooks de pagos y conciliacion admin
+- [x] Webhooks de pagos y conciliación admin
 - [x] SSE autenticado con heartbeat y replay por `Last-Event-ID`
-- [x] Auditoria, señales antifraude y soporte documental por solicitud
+- [x] Auditoría, señales antifraude y soporte documental por solicitud
 - [x] Mapbox GL JS opcional con fallback visual
-- [x] Imagenes fotorealistas individuales por categoria en WebP
+- [x] Imágenes fotorrealistas individuales por categoría en WebP
 - [x] OAuth Google/Apple cableado con OIDC, state, PKCE para Google y cookies httpOnly
 - [x] Upload documental real con S3 presigned PUT o Cloudinary signed upload
 - [x] Logs estructurados, endpoint `/metrics`, gauge SSE y export OTLP opcional
-- [x] Runtime SQLite/Postgres con migracion, backup, smoke test y compose para Postgres gestionado
-- [x] CI con lint, unit, build, e2e, audit y build Docker
+- [x] Runtime SQLite/Postgres con migración, backup, smoke test y compose para Postgres gestionado
+- [x] CI con lint, unit, reglas Firebase, build, e2e, audit y build Docker
 - [x] Pipeline de staging por GitHub Actions + SSH + Docker Compose
 - [x] Plantilla `.env.staging.example` para staging con secretos reales
-- [x] Doctor de produccion para validar secretos, URLs HTTPS, Postgres, webhooks y proveedores externos
+- [x] Doctor de producción para validar secretos, URLs HTTPS, Postgres, webhooks y proveedores externos
 - [x] Workflow live-smoke para probar staging con credenciales reales desde GitHub Actions
-- [x] Estados loading, empty, error y success en flujos criticos
-- [x] Tokens de color, tipografia, spacing, radios y sombras en CSS
+- [x] Estados loading, empty, error y success en flujos críticos
+- [x] Tokens de color, tipografía, spacing, radios y sombras en CSS
 - [x] Foco visible, labels, aria-live y contraste WCAG AA
-- [x] Imagenes fotorealistas lazy-loaded con dimensiones estables
-- [x] Pruebas unitarias de creacion de solicitud, smoke e2e desktop/mobile, permisos negativos, seguridad basica y carga ligera
+- [x] Imágenes fotorrealistas lazy-loaded con dimensiones estables
+- [x] Pruebas unitarias de creación de solicitud, smoke e2e desktop/mobile, permisos negativos, seguridad básica y carga ligera
 - [x] Componentes reutilizables documentados en `src/components/README.md`
+- [x] Vista pública de Legal y confianza con lineamientos de privacidad, pagos, KYC y disputas
 - [ ] Rotar secretos reales en el proveedor de hosting y confirmar que `npm run prod:doctor:live` pase sin skips
 - [ ] Provisionar dominio real, HTTPS y staging activo en la infraestructura final
-- [ ] Probar webhooks reales con cuentas Stripe/Mercado Pago y URLs publicas del entorno final
-- [ ] Configurar alertas, retencion y tableros en el proveedor elegido de observabilidad
-- [ ] Ejecutar pruebas de carga y seguridad formales con el volumen esperado de produccion
+- [ ] Probar webhooks reales con cuentas Stripe/Mercado Pago y URLs públicas del entorno final
+- [ ] Configurar alertas, retención y tableros en el proveedor elegido de observabilidad
+- [ ] Ejecutar pruebas de carga y seguridad formales con el volumen esperado de producción
+- [ ] Revisar términos, aviso de privacidad, cancelaciones, reembolsos y consentimiento KYC con abogado

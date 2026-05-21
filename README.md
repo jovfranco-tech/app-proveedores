@@ -27,6 +27,7 @@ Producción actual: https://conectapro-mx.vercel.app
 - Mapa: Mapbox cuando `VITE_MAPBOX_TOKEN` existe; OpenStreetMap como fallback público sin token.
 - Observabilidad: Sentry opcional en frontend y Functions, breadcrumbs de sesión/rol, ErrorBoundary y alertas operativas en admin.
 - KYC: proveedores suben identificación/RFC a Firebase Storage y admin aprueba/rechaza desde Functions.
+- Legal y confianza: vista pública con lineamientos de privacidad, pagos protegidos, KYC, disputas y reglas operativas.
 
 ## Desarrollo Local
 
@@ -146,6 +147,7 @@ En Functions v2, configura también los params `APP_ORIGIN` y `PAYMENT_PROVIDER`
 - `auditLogs` no permite escritura de clientes/proveedores.
 - Firestore y Storage tienen fallback deny-by-default.
 - Secretos de pago y credenciales Admin SDK quedan fuera de Vite.
+- La vista Legal resume reglas operativas para usuarios y admins, pero debe respaldarse con documentos legales revisados por abogado antes de operación comercial a gran escala.
 
 ## Pagos Y Escrow
 
@@ -203,6 +205,7 @@ npm run test:rules
 ```
 
 Ese comando requiere Java en el `PATH` porque Firestore Emulator corre sobre JVM.
+En CI se instala Java y se ejecuta `npm run test:rules` para bloquear cambios que debiliten reglas Firestore.
 
 Smoke test posterior a deploy:
 
@@ -213,12 +216,12 @@ Smoke test posterior a deploy:
 - Confirmar que cliente/proveedor no pueden leer panel admin.
 - Confirmar que cliente no puede escribir `payments` ni `auditLogs`.
 - Confirmar webhook de pago actualiza escrow desde Functions.
-- Confirmar que Sentry recibe errores si `VITE_SENTRY_DSN`/`SENTRY_DSN` estan configurados.
+- Confirmar que Sentry recibe errores si `VITE_SENTRY_DSN`/`SENTRY_DSN` están configurados.
 
 ## Limitaciones Conocidas
 
 - Los webhooks de Stripe/Mercado Pago ya validan firma y actualizan escrow cuando el proveedor confirma un pago aprobado. Falta probarlos con eventos reales de cada cuenta antes de abrir tráfico productivo.
 - Falta rotar la secret key de Stripe desde el Dashboard/Workbench de Stripe y actualizar `STRIPE_SECRET_KEY` en Firebase Secret Manager.
-- `conectapro.vercel.app` esta ocupado fuera del scope actual de Vercel; producción usa `conectapro-mx.vercel.app` hasta liberar ese alias exacto o configurar dominio propio.
+- `conectapro.vercel.app` está ocupado fuera del scope actual de Vercel; producción usa `conectapro-mx.vercel.app` hasta liberar ese alias exacto o configurar dominio propio.
 - La suite `test:rules` usa `@firebase/rules-unit-testing`, pero necesita Java/Firebase Emulator Suite instalado para correr localmente o en CI.
 - El backend Express/SQLite sigue en el repo como referencia y compatibilidad local, pero el frontend ya usa Firebase cuando `VITE_FIREBASE_*` está configurado.
