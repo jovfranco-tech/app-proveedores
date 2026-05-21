@@ -1,4 +1,4 @@
-# App Proveedores
+# ConectaPro
 
 Marketplace web para conectar clientes con proveedores locales verificados en Mexico. La app conserva el valor del producto original: solicitudes de servicio, panel de proveedor, panel admin, chat, escrow/pagos, disputas, auditoria, antifraude, PWA/offline y una experiencia demo local.
 
@@ -14,7 +14,7 @@ Usuario
   -> Stripe / Mercado Pago desde Functions, nunca desde el frontend
 ```
 
-Produccion actual: https://app-proveedores-3.vercel.app
+Produccion actual: https://conectapro-mx.vercel.app
 
 ## Servicios Firebase
 
@@ -219,6 +219,6 @@ Smoke test posterior a deploy:
 
 - Los webhooks de Stripe/Mercado Pago ya validan firma y actualizan escrow cuando el proveedor confirma un pago aprobado. Falta probarlos con eventos reales de cada cuenta antes de abrir trafico productivo.
 - Falta rotar la secret key de Stripe desde el Dashboard/Workbench de Stripe y actualizar `STRIPE_SECRET_KEY` en Firebase Secret Manager.
-- `app-proveedores.vercel.app` sigue ocupado fuera del scope actual de Vercel; produccion usa `app-proveedores-3.vercel.app` hasta liberar alias o configurar dominio propio.
+- `conectapro.vercel.app` esta ocupado fuera del scope actual de Vercel; produccion usa `conectapro-mx.vercel.app` hasta liberar ese alias exacto o configurar dominio propio.
 - La suite `test:rules` usa `@firebase/rules-unit-testing`, pero necesita Java/Firebase Emulator Suite instalado para correr localmente o en CI.
 - El backend Express/SQLite sigue en el repo como referencia y compatibilidad local, pero el frontend ya usa Firebase cuando `VITE_FIREBASE_*` esta configurado.

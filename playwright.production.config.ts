@@ -6,7 +6,7 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   fullyParallel: false,
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? 'https://app-proveedores-3.vercel.app',
+    baseURL: process.env.E2E_BASE_URL ?? 'https://conectapro-mx.vercel.app',
     trace: 'on-first-retry'
   },
   projects: [{ name: 'chromium-production', use: { ...devices['Desktop Chrome'] } }]

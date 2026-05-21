@@ -149,15 +149,12 @@ a {
   min-width: 0;
 }
 
-.brand-mark {
-  display: grid;
-  width: 42px;
-  height: 42px;
-  place-items: center;
-  border-radius: var(--radius);
-  color: #fff;
-  background: var(--color-ink);
-  font-weight: 800;
+.brand-logo {
+  display: block;
+  width: clamp(140px, 18vw, 220px);
+  height: auto;
+  max-height: 44px;
+  object-fit: contain;
 }
 
 .brand strong,
@@ -1383,7 +1380,7 @@ textarea {
     padding: var(--space-2);
   }
 
-  .brand small,
+  .brand-copy,
   .header-status strong {
     display: none;
   }

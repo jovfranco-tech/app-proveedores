@@ -22,7 +22,7 @@ async function logout(page: Page) {
 test('catalogo y mapa publico cargan desde Firebase sin sesion', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.getByRole('heading', { name: 'App Proveedores' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'ConectaPro' })).toBeVisible();
   await page.getByRole('button', { name: 'Catalogo', exact: true }).click();
   await expect(page.locator('.category-card')).toHaveCount(8);
 

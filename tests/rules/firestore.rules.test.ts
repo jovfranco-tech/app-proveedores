@@ -6,7 +6,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 let testEnv: RulesTestEnvironment;
 
-const projectId = 'app-proveedores-rules-test';
+const projectId = 'conectapro-rules-test';
 
 beforeAll(async () => {
   testEnv = await initializeTestEnvironment({

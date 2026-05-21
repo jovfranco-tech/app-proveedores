@@ -4,7 +4,7 @@ test('home y creacion de solicitud cliente', async ({ page }) => {
   const title = `Cambio urgente de chapa principal ${Date.now()}`;
   await page.goto('/');
 
-  await expect(page.getByRole('heading', { name: 'App Proveedores' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'ConectaPro' })).toBeVisible();
   await page.getByRole('button', { name: /Cliente/i }).first().click();
   await expect(page.getByRole('heading', { name: /Publica solicitudes/i })).toBeVisible();
 

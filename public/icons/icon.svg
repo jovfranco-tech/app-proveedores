@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
-  <title id="title">AppProveedores</title>
-  <desc id="desc">Icono de AppProveedores con una A y punto de ubicacion.</desc>
+  <title id="title">ConectaPro</title>
+  <desc id="desc">Icono de ConectaPro.</desc>
   <defs>
     <linearGradient id="bg" x1="72" y1="48" x2="440" y2="464" gradientUnits="userSpaceOnUse">
       <stop stop-color="#192849"/>

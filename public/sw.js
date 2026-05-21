@@ -1,13 +1,15 @@
 /* global self, caches, URL, location, fetch */
 
-const CACHE_NAME = 'app-proveedores-v1';
+const CACHE_NAME = 'conectapro-v1';
 const OFFLINE_URL = '/offline.html';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.webmanifest',
   OFFLINE_URL,
-  '/icons/icon.svg',
+  '/icons/conectapro-icon.png',
+  '/icons/conectapro-icon-192.png',
+  '/assets/conectapro-logo.png',
   '/assets/hero-services.jpg',
   '/assets/category-albanileria.webp',
   '/assets/category-albercas.webp',

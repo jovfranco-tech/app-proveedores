@@ -1,6 +1,6 @@
 {
-  "name": "App Proveedores",
-  "short_name": "Proveedores",
+  "name": "ConectaPro",
+  "short_name": "ConectaPro",
   "description": "Marketplace para solicitar, aceptar y administrar servicios locales en Mexico.",
   "start_url": "/",
   "scope": "/",
@@ -12,9 +12,15 @@
   "categories": ["business", "productivity", "utilities"],
   "icons": [
     {
-      "src": "/icons/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/icons/conectapro-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/conectapro-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ],
@@ -24,14 +30,14 @@
       "short_name": "Catalogo",
       "description": "Explorar categorias y servicios disponibles",
       "url": "/",
-      "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+      "icons": [{ "src": "/icons/conectapro-icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "Mapa de demanda",
       "short_name": "Mapa",
       "description": "Ver zonas calientes de solicitudes",
       "url": "/",
-      "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+      "icons": [{ "src": "/icons/conectapro-icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }

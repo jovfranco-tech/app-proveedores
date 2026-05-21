@@ -203,12 +203,10 @@ function AppHeader({
 
   return (
     <header className="app-header">
-      <a className="brand" href="#home" onClick={() => onNavigate('home')} aria-label="Ir al inicio de App Proveedores">
-        <span className="brand-mark" aria-hidden="true">
-          CP
-        </span>
-        <span>
-          <strong>App Proveedores</strong>
+      <a className="brand" href="#home" onClick={() => onNavigate('home')} aria-label="Ir al inicio de ConectaPro">
+        <img className="brand-logo" src="/assets/conectapro-logo.png" alt="" aria-hidden="true" />
+        <span className="brand-copy">
+          <strong>ConectaPro</strong>
           <small>Servicios verificados</small>
         </span>
       </a>
@@ -271,7 +269,7 @@ function HomeView({
             <BadgeCheck aria-hidden="true" size={18} />
             Marketplace premium para servicios locales
           </span>
-          <h1 id="hero-title">App Proveedores</h1>
+          <h1 id="hero-title">ConectaPro</h1>
           <p>
             Clientes publican trabajos con presupuesto protegido. Proveedores con suscripcion activa reciben solicitudes cercanas,
             aceptan, conversan y cobran al cierre.
@@ -1994,7 +1992,7 @@ export function App() {
       <AppHeader session={session} activeView={view} notifications={notifications} onNavigate={handleNavigate} onLogout={handleLogout} />
       <main>
         {error ? <ErrorBanner message={error} onRetry={() => loadCore(session?.role)} /> : null}
-        {loading ? <LoadingBlock label="Preparando App Proveedores..." /> : null}
+        {loading ? <LoadingBlock label="Preparando ConectaPro..." /> : null}
         {!loading && view === 'home' ? (
           <HomeView
             featured={featured}
